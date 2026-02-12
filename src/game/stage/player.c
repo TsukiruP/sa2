@@ -6395,21 +6395,37 @@ void Player_TouchNormalSpring(Player *p)
         case 4: {
             p->qSpeedAirX = -sSpringAccelX[r6];
             p->qSpeedAirY = -sSpringAccelY[r6];
+
+            if (p->qSpeedAirX < -Q(9.0)) {
+                p->isBoosting = TRUE;
+            }
         } break;
 
         case 5: {
             p->qSpeedAirX = +sSpringAccelX[r6];
             p->qSpeedAirY = -sSpringAccelY[r6];
+
+            if (p->qSpeedAirX > +Q(9.0)) {
+                p->isBoosting = TRUE;
+            }
         } break;
 
         case 6: {
             p->qSpeedAirX = -sSpringAccelX[r6];
             p->qSpeedAirY = +sSpringAccelY[r6];
+
+            if (p->qSpeedAirX < -Q(9.0)) {
+                p->isBoosting = TRUE;
+            }
         } break;
 
         case 7: {
             p->qSpeedAirX = +sSpringAccelX[r6];
             p->qSpeedAirY = +sSpringAccelY[r6];
+
+            if (p->qSpeedAirX > +Q(9.0)) {
+                p->isBoosting = TRUE;
+            }
         } break;
     }
 
