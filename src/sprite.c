@@ -5,12 +5,12 @@
 #include "sprite.h"
 #include "trig.h"
 #include "lib/m4a/m4a.h"
-#include "data/sprite_data.h"
-#include "animation_commands.h"
+
 #include "platform/platform.h"
 
-#if !PLATFORM_GBA && !PLATFORM_SDL
+#if !PLATFORM_GBA && (RENDERER != RENDERER_SOFTWARE)
 extern void Platform_DisplaySprite(Sprite *sprite, u8 oamPaletteNum);
+extern void Platform_TransformSprite(Sprite *sprite, SpriteTransform *transform);
 #endif
 
 #define ReadInstruction(script, cursor) ((void *)(script) + (cursor * sizeof(s32)))
@@ -148,7 +148,7 @@ AnimCmdResult UpdateSpriteAnimation(Sprite *s)
         return 0;
 
     if (s->qAnimDelay > 0)
-        s->qAnimDelay -= s->animSpeed * 16;
+        s->qAnimDelay -= s->animSpeed * SPRITE_ANIM_SPEED(1.0);
     else {
         /* Call all commands for the new frame */
         s32 ret;
@@ -194,7 +194,7 @@ AnimCmdResult UpdateSpriteAnimation(Sprite *s)
 
 #if ((GAME == GAME_SA1) || (GAME == GAME_SA2))
             if (frame != -1) {
-                const struct SpriteTables *sprTables = gRefSpriteTables;
+                const SpriteTables *sprTables = gRefSpriteTables;
 
                 s->dimensions = &sprTables->dimensions[GET_SPRITE_ANIM(s)][frame];
             } else {
@@ -325,10 +325,11 @@ static AnimCmdResult animCmd_GetPalette(void *cursor, Sprite *s)
         s32 paletteIndex = cmd->palId;
 
         if (gFlags & FLAGS_20000) {
-            CopyPalette(&gRefSpriteTables->palettes[paletteIndex * 16], s->palId * 16 + cmd->insertOffset, cmd->numColors);
+            CopyPalette(&gRefSpriteTables->palettes[paletteIndex * PALETTE_LEN_4BPP], s->palId * PALETTE_LEN_4BPP + cmd->insertOffset,
+                        cmd->numColors);
         } else {
-            DmaCopy16(3, &gRefSpriteTables->palettes[paletteIndex * 16], &gObjPalette[s->palId * 16 + cmd->insertOffset],
-                      cmd->numColors * 2);
+            DmaCopy16(3, &gRefSpriteTables->palettes[paletteIndex * PALETTE_LEN_4BPP], &GET_PALETTE_COLOR_OBJ(s->palId, cmd->insertOffset),
+                      cmd->numColors * sizeof(ColorRaw));
 
             gFlags |= FLAGS_UPDATE_SPRITE_PALETTES;
         }
@@ -348,19 +349,19 @@ static AnimCmdResult animCmd_AddHitbox(void *cursor, Sprite *s)
 
     DmaCopy32(3, &cmd->hitbox, &s->hitboxes[hitboxId].index, sizeof(Hitbox));
 #if (GAME == GAME_SA3)
-    if (((u8)cmd->hitbox.left == (u8)cmd->hitbox.right) && (*(volatile u8 *)&cmd->hitbox.top == (u8)cmd->hitbox.bottom))
+    if (((u8)cmd->hitbox.b.left == (u8)cmd->hitbox.b.right) && (*(volatile u8 *)&cmd->hitbox.b.top == (u8)cmd->hitbox.b.bottom))
 #else
-    if ((cmd->hitbox.left == 0) && (cmd->hitbox.top == 0) && (cmd->hitbox.right == 0) && (cmd->hitbox.bottom == 0))
+    if ((cmd->hitbox.b.left == 0) && (cmd->hitbox.b.top == 0) && (cmd->hitbox.b.right == 0) && (cmd->hitbox.b.bottom == 0))
 #endif
     {
         s->hitboxes[hitboxId].index = -1;
     } else {
         if (s->frameFlags & SPRITE_FLAG_MASK_Y_FLIP) {
-            SWAP_AND_NEGATE(s->hitboxes[hitboxId].top, s->hitboxes[hitboxId].bottom);
+            SWAP_AND_NEGATE(s->hitboxes[hitboxId].b.top, s->hitboxes[hitboxId].b.bottom);
         }
 
         if (s->frameFlags & SPRITE_FLAG_MASK_X_FLIP) {
-            SWAP_AND_NEGATE(s->hitboxes[hitboxId].left, s->hitboxes[hitboxId].right);
+            SWAP_AND_NEGATE(s->hitboxes[hitboxId].b.left, s->hitboxes[hitboxId].b.right);
         }
     }
 
@@ -393,7 +394,10 @@ NONMATCH("asm/non_matching/engine/TransformSprite.inc", void TransformSprite(Spr
     // sp24 = s
     UnkSpriteStruct big;
     const SpriteOffset *dimensions = s->dimensions;
-
+#if PORTABLE && (RENDERER != RENDERER_SOFTWARE)
+    Platform_TransformSprite(s, transform);
+    return;
+#endif
     if (dimensions != (SpriteOffset *)-1) {
         s16 res;
         s16 x16, y16;
@@ -523,10 +527,10 @@ NONMATCH("asm/non_matching/engine/sa2__sub_8004E14.inc", void SA2_LABEL(sub_8004
         us.affineIndex = sprite->frameFlags & SPRITE_FLAG_MASK_ROT_SCALE;
         affine = (u16 *)&gOamBuffer[us.affineIndex * 4].all.affineParam;
 
-        us.qDirX = COS_24_8((transform->rotation + SA2_LABEL(gUnknown_03001944)) & ONE_CYCLE);
-        us.qDirY = SIN_24_8((transform->rotation + SA2_LABEL(gUnknown_03001944)) & ONE_CYCLE);
-        us.unkC[0] = I(transform->qScaleX * SA2_LABEL(gUnknown_030017F0));
-        us.unkC[1] = I(transform->qScaleY * SA2_LABEL(gUnknown_03005394));
+        us.qDirX = COS_24_8((transform->rotation + gSpriteTransformRotation) & ONE_CYCLE);
+        us.qDirY = SIN_24_8((transform->rotation + gSpriteTransformRotation) & ONE_CYCLE);
+        us.unkC[0] = I(transform->qScaleX * gSpriteTransformScaleX);
+        us.unkC[1] = I(transform->qScaleY * gSpriteTransformScaleY);
 
         affine[0 * OAM_DATA_COUNT_AFFINE] = I(Div(Q(256), us.unkC[0]) * us.qDirX);
         affine[1 * OAM_DATA_COUNT_AFFINE] = I(Div(Q(256), us.unkC[0]) * us.qDirY);
@@ -534,12 +538,12 @@ NONMATCH("asm/non_matching/engine/sa2__sub_8004E14.inc", void SA2_LABEL(sub_8004
         affine[3 * OAM_DATA_COUNT_AFFINE] = I(Div(Q(256), us.unkC[1]) * us.qDirX);
 
         if (transform->qScaleX < 0) {
-            us.unkC[0] = I(-transform->qScaleX * SA2_LABEL(gUnknown_030017F0));
+            us.unkC[0] = I(-transform->qScaleX * gSpriteTransformScaleX);
         }
         // _08004F48
 
         if (transform->qScaleY < 0) {
-            us.unkC[1] = I(-transform->qScaleY * SA2_LABEL(gUnknown_03005394));
+            us.unkC[1] = I(-transform->qScaleY * gSpriteTransformScaleY);
         }
         // _08004F6A
 
@@ -551,17 +555,17 @@ NONMATCH("asm/non_matching/engine/sa2__sub_8004E14.inc", void SA2_LABEL(sub_8004
         // 2D Rotation matrix:
         // { +cos(a), -sin(a) }
         // { +sin(a), +cos(a) }
-        us.unk18[0][0] = I((Q(+COS_24_8(SA2_LABEL(gUnknown_03001944))) * SA2_LABEL(gUnknown_030017F0)) >> 16)
-            * (Q(us.unkC[0] * SA2_LABEL(gUnknown_03005398) >> 16));
-        us.unk18[0][1] = I((Q(-SIN_24_8(SA2_LABEL(gUnknown_03001944))) * SA2_LABEL(gUnknown_030017F0)) >> 16)
-            * (Q(us.unkC[0] * SA2_LABEL(gUnknown_03005398) >> 16));
-        us.unk18[1][0] = I((Q(+SIN_24_8(SA2_LABEL(gUnknown_03001944))) * SA2_LABEL(gUnknown_03005394)) >> 16)
-            * (Q(us.unkC[1] * SA2_LABEL(gUnknown_03005398) >> 16));
-        us.unk18[1][1] = I((Q(+COS_24_8(SA2_LABEL(gUnknown_03001944))) * SA2_LABEL(gUnknown_03005394)) >> 16)
-            * (Q(us.unkC[1] * SA2_LABEL(gUnknown_03005398) >> 16));
+        us.unk18[0][0] = I((Q(+COS_24_8(gSpriteTransformRotation)) * gSpriteTransformScaleX) >> 16)
+            * (Q(us.unkC[0] * gSpriteTransformScaleUnknown >> 16));
+        us.unk18[0][1] = I((Q(-SIN_24_8(gSpriteTransformRotation)) * gSpriteTransformScaleX) >> 16)
+            * (Q(us.unkC[0] * gSpriteTransformScaleUnknown >> 16));
+        us.unk18[1][0] = I((Q(+SIN_24_8(gSpriteTransformRotation)) * gSpriteTransformScaleY) >> 16)
+            * (Q(us.unkC[1] * gSpriteTransformScaleUnknown >> 16));
+        us.unk18[1][1] = I((Q(+COS_24_8(gSpriteTransformRotation)) * gSpriteTransformScaleY) >> 16)
+            * (Q(us.unkC[1] * gSpriteTransformScaleUnknown >> 16));
 
-        us.posX = I(transform->x * us.unk18[0][0] + transform->y * us.unk18[0][1] + Q(SA2_LABEL(gUnknown_0300194C)));
-        us.posY = I(transform->x * us.unk18[1][0] + transform->y * us.unk18[1][1] + Q(SA2_LABEL(gUnknown_03002820)));
+        us.posX = I(transform->x * us.unk18[0][0] + transform->y * us.unk18[0][1] + Q(gSpriteTransformX));
+        us.posY = I(transform->x * us.unk18[1][0] + transform->y * us.unk18[1][1] + Q(gSpriteTransformY));
 
         {
             u16 width, height;
@@ -722,7 +726,7 @@ void DisplaySprite(Sprite *sprite)
                 oam->split.paletteNum += sprite->palId;
 #endif
 
-#if !PLATFORM_GBA && !PLATFORM_SDL
+#if !PLATFORM_GBA && (RENDERER != RENDERER_SOFTWARE)
                 // TEMP
                 // Quick hack for getting output in OpenGL test
                 // The whole function call should be replaced by this!
@@ -836,8 +840,8 @@ UNUSED void DisplaySprites(Sprite *sprite, Vec2_16 *positions, u8 numPositions)
         y = sprite->y;
 
         if (sprite->frameFlags & SPRITE_FLAG_GLOBAL_OFFSET) {
-            x -= SA2_LABEL(gSpriteOffset).x;
-            y -= SA2_LABEL(gSpriteOffset).y;
+            x -= gSpriteOffset.x;
+            y -= gSpriteOffset.y;
         }
 
         sprWidth = sprDims->width;
@@ -964,14 +968,14 @@ OamData *OamMalloc(u8 order)
         gOamMallocBuffer[gOamFreeIndex].split.fractional = 0xFF;
         // And store the start of the chain
         gOamMallocOrders_StartIndex[order] = gOamFreeIndex;
-        SA2_LABEL(gOamMallocOrders_EndIndex)[order] = gOamFreeIndex;
+        gOamMallocOrders_EndIndex[order] = gOamFreeIndex;
     } else {
         gOamMallocBuffer[gOamFreeIndex].split.fractional = 0xFF;
         // Store the next index on the previous in the chain
         // This is a bit of a hack cos it requires writing to the "fractional" part of the oam
         // but it's not used for this value
-        gOamMallocBuffer[SA2_LABEL(gOamMallocOrders_EndIndex)[order]].split.fractional = gOamFreeIndex;
-        SA2_LABEL(gOamMallocOrders_EndIndex)[order] = gOamFreeIndex;
+        gOamMallocBuffer[gOamMallocOrders_EndIndex[order]].split.fractional = gOamFreeIndex;
+        gOamMallocOrders_EndIndex[order] = gOamFreeIndex;
     }
 
     gOamFreeIndex++;
@@ -988,7 +992,7 @@ void ProcessOamBuffers(void)
         s8 oamMallocIndex = gOamMallocOrders_StartIndex[layer];
 
         while (oamMallocIndex != -1) {
-            u8 *debugCopyOrders = SA2_LABEL(gOamMallocCopiedOrder);
+            u8 *debugCopyOrders = gOamMallocCopiedOrder;
             DmaCopy16(3, &gOamMallocBuffer[oamMallocIndex], dstOam, sizeof(OamDataShort));
             dstOam++;
 
@@ -1041,10 +1045,10 @@ void ProcessOamBuffers(void)
     gOamFreeIndex = 0;
     if (gFlags & FLAGS_4000) {
         CpuFill32(-1, gOamMallocOrders_StartIndex, sizeof(gOamMallocOrders_StartIndex));
-        CpuFill32(-1, SA2_LABEL(gOamMallocOrders_EndIndex), sizeof(SA2_LABEL(gOamMallocOrders_EndIndex)));
+        CpuFill32(-1, gOamMallocOrders_EndIndex, sizeof(gOamMallocOrders_EndIndex));
     } else {
         DmaFill32(3, -1, gOamMallocOrders_StartIndex, sizeof(gOamMallocOrders_StartIndex));
-        DmaFill32(3, -1, SA2_LABEL(gOamMallocOrders_EndIndex), sizeof(SA2_LABEL(gOamMallocOrders_EndIndex)));
+        DmaFill32(3, -1, gOamMallocOrders_EndIndex, sizeof(gOamMallocOrders_EndIndex));
     }
 }
 
@@ -1058,8 +1062,11 @@ static AnimCmdResult animCmd_GetPalette(void *cursor, Sprite *s)
 
     if (!(s->frameFlags & SPRITE_FLAG_MASK_18)) {
         s32 paletteIndex = cmd->palId;
+        // NOTE: This has to be split off to match using a sizeof()
+        const s32 colorSize = sizeof(ColorRaw);
 
-        DmaCopy32(3, &gRefSpriteTables->palettes[paletteIndex * 16], &gObjPalette[s->palId * 16 + cmd->insertOffset], cmd->numColors * 2);
+        DmaCopy32(3, &gRefSpriteTables->palettes[paletteIndex * PALETTE_LEN_4BPP], &GET_PALETTE_COLOR_OBJ(s->palId, cmd->insertOffset),
+                  cmd->numColors * colorSize);
 
         gFlags |= FLAGS_UPDATE_SPRITE_PALETTES;
     }

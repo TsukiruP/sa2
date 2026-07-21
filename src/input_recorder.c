@@ -4,6 +4,10 @@
 #include "malloc_ewram.h"
 #include "input_recorder.h"
 
+// TODO: Move input recorder into sa1_sa2_shared
+// It seems input recorder implementation is not infact
+// part of the engine, and instead part of the sa1 game codebase
+
 #if TAS_TESTING
 #if PORTABLE
 #include <stdio.h>
@@ -18,7 +22,7 @@ struct InputRecorder gInputRecorder ALIGNED(8) = { 0 };
 u16 *gInputRecorderTapeBuffer = NULL;
 
 static void Task_InputRecorder(void);
-static void InputRecorderEject(struct Task *);
+static void InputRecorderEject(Task *);
 
 void InputRecorderResetRecordHead(void) { gInputRecorder.recordHead = 0; }
 
@@ -89,7 +93,7 @@ static void Task_InputRecorder(void)
     // Potentially generate input ??
 }
 
-static void InputRecorderEject(struct Task *_)
+static void InputRecorderEject(Task *_)
 {
     EwramFree(gInputRecorderTapeBuffer);
 

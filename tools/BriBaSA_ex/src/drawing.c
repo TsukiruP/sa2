@@ -13,7 +13,7 @@
 
 /* TODO: Make including <entity>.h from game code work */
 
-//From "game/interactables_2/music_plant/chord.h"
+//From "game/sa2/stage/interactables/music_plant/chord.h"
 #define NUM_CHORD_ELEMS 6
 
 // From light_bridge.h
@@ -23,7 +23,7 @@
 #define BRIDGE_TYPE_CURVED   1
 
 
-#include "../../../include/constants/interactables.h"
+#include "../../../include/constants/sa2/interactables.h"
 #include "../../../include/constants/zones.h"
 
 static void DrawEntInteractableSA2(AppState *state, int x, int y, int kind, char data[4]);

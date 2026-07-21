@@ -2,7 +2,8 @@
 #define GUARD_GLOBAL_H
 
 #include "config.h"
-#include "gba/gba.h"
+#include "gba/gba.h" // TODO: Only actually include when compiling for GBA
+#include "color.h"
 
 #if PLATFORM_GBA
 #define ENABLE_AUDIO TRUE
@@ -19,9 +20,11 @@
 #if !PLATFORM_GBA
 #ifdef _WIN32
 void *Platform_malloc(size_t numBytes);
+void *Platform_realloc(void *ptr, size_t numBytes);
 void Platform_free(void *ptr);
 #define malloc(numBytes)    Platform_malloc(numBytes)
 #define calloc(count, size) Platform_malloc(count *size)
+#define realloc(ptr, size)  Platform_realloc(ptr, size)
 #define free(numBytes)      Platform_free(numBytes)
 #endif
 #endif
@@ -87,6 +90,12 @@ typedef void (*VoidFn)(void);
 #define INCBIN_S32 INCBIN
 #endif // IDE support
 
+#if (GAME == GAME_SA1)
+#define INCBIN_MAP INCBIN_U8
+#else
+#define INCBIN_MAP INCBIN_U16
+#endif
+
 // Use STR(<macro>) to turn the macro's *content* into a string
 #define STR_(x) #x
 #define STR(x)  STR_(x)
@@ -143,6 +152,7 @@ typedef void (*VoidFn)(void);
 
 // Multiplies two Q values
 #define Q_MUL(qValA, qValB)         ((qValA * qValB) >> 8)
+#define Q_MUL_NEG(qValA, qValB)     (-(qValA * qValB) >> 8)
 #define Q_SQUARE(qVal)              Q_MUL(qVal, qVal)
 #define Q_DIV(qValA, qValB)         Div((qValA << 8), qValB)
 #define Q_DIV2(qValA, qValB)        ((qValA << 8) / qValB)
@@ -160,10 +170,6 @@ typedef void (*VoidFn)(void);
 
 // Converts a Q24.8 fixed-point format number to a regular integer
 #define I(n) Q_24_8_TO_INT(n)
-
-#define RED_VALUE(color)   (((color) >> 0) & 0x1F)
-#define GREEN_VALUE(color) (((color) >> 5) & 0x1F)
-#define BLUE_VALUE(color)  (((color) >> 10) & 0x1F)
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -222,7 +228,8 @@ typedef void (*VoidFn)(void);
         }                                                                                                                                  \
     })
 
-#define ABS(aValue) ((aValue) >= 0 ? (aValue) : -(aValue))
+#define ABS(aValue)  ((aValue) >= 0 ? (aValue) : -(aValue))
+#define ABS2(aValue) ((aValue) < 0 ? -(aValue) : (aValue))
 
 #define RECT_DISTANCE(aXA, aYA, aXB, aYB) (ABS((aXA) - (aXB)) + ABS((aYA) - (aYB)))
 
@@ -280,6 +287,19 @@ typedef void (*VoidFn)(void);
     b ^= (u8)a;                                                                                                                            \
     a = ((u8)b ^ (u8)a);
 
+#define XOR_SWAP_2(a, b)                                                                                                                   \
+    ({                                                                                                                                     \
+        u16 x = a ^ b;                                                                                                                     \
+        u16 y = a ^ b ^ b;                                                                                                                 \
+        b = y;                                                                                                                             \
+        a = x ^ y;                                                                                                                         \
+    })
+
+#define XOR_SWAP_WORD(a, b)                                                                                                                \
+    a ^= b;                                                                                                                                \
+    b ^= a;                                                                                                                                \
+    a = (b ^ a);
+
 // TODO: fix casts here
 #define SWAP_AND_NEGATE(a, b)                                                                                                              \
     a ^= (u8)b;                                                                                                                            \
@@ -313,22 +333,9 @@ typedef struct {
     void *data;
 } RLCompressed;
 
-struct BlendRegs {
-    u16 bldCnt;
-    u16 bldAlpha;
-    u16 bldY;
-};
-
 // TODO: Should this be in a GBA-specific header file?
 #define NUM_AFFINE_BACKGROUNDS 2
 #define NUM_BACKGROUNDS        4
-
-// Values to be passed top the affine registers
-// (used by BG2/BG3 in affine screen modes)
-typedef struct {
-    /* 0x00 */ u16 pa, pb, pc, pd;
-    /* 0x08 */ u32 x, y;
-} BgAffineReg;
 
 // TODO: Find better place for this
 typedef void (*HBlankIntrFunc)(int_vcount vcount);

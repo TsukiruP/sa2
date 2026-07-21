@@ -47,6 +47,11 @@
 #define INCBIN_S8  INCBIN
 #define INCBIN_S16 INCBIN
 #define INCBIN_S32 INCBIN
+
+#define INCPAL(...)                                                                                                                        \
+    {                                                                                                                                      \
+        0                                                                                                                                  \
+    }
 #endif // IDE support
 
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
@@ -72,10 +77,6 @@
 
 // Converts a Q24.8 fixed-point format number to a regular integer
 #define Q_24_8_TO_INT(n) ((int)((n) >> 8))
-
-#define RED_VALUE(color)   ((color)&0x1F)
-#define GREEN_VALUE(color) (((color) >> 5) & 0x1F)
-#define BLUE_VALUE(color)  (((color) >> 10) & 0x1F)
 
 #define ABS(aValue) ((aValue) >= 0 ? (aValue) : -(aValue))
 

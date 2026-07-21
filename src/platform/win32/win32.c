@@ -23,10 +23,7 @@ static RECT Win32_GetWindowDimension(HWND Window);
 static void Win32_InitOpenGL(HWND window);
 #endif
 
-static u16 ALIGNED(8) sImageBuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT] = {
-    RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN,
-    RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN, RGB_GREEN,
-};
+static u16 ALIGNED(8) sImageBuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT] = {};
 static BITMAPINFO sBMInfo = { 0 };
 static bool32 sRunning = TRUE;
 static HWND sWindowHandle = 0;
@@ -36,6 +33,11 @@ static u16 sInputKeys = 0;
 #define ENABLE_RESIZE TRUE
 
 enum { DMA_NOW, DMA_VBLANK, DMA_HBLANK, DMA_SPECIAL };
+
+// Stuff like allocating a console shell and initializing OpenGL allocates tens of MB of RAM.
+// This should free it all...
+// via: https://twitter.com/vkrajacic/status/2028919788362441206
+static inline void ShredWindowsGarbage(void) { SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1); }
 
 typedef union {
     struct {
@@ -112,6 +114,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR lpCmdLine, 
 
             Win32_ProcessPendingMessages(sWindowHandle);
 
+            ShredWindowsGarbage();
+
             // If this isn't set, gFlags gets set to FLAGS_200, leading to the MP menu being
             // loaded instead of the main loop
             REG_RCNT = 0x8000;
@@ -123,7 +127,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR lpCmdLine, 
             DWORD threadId;
 
 #if 01
-            REG_KEYINPUT &= ~START_BUTTON;
+            // REG_KEYINPUT &= ~START_BUTTON;
             while (sRunning) {
                 memset(sImageBuffer, 0, sizeof(sImageBuffer));
 
@@ -320,16 +324,26 @@ static void Win32_ProcessPendingMessages(HWND window)
 // Converts GBA -> Win32 RGB value
 #define RGB_SHIFT(value) (((value >> 10) & 0x1F) | (value & 0x3E0) | (((value & 0x1F) << 10)))
 
+void Platform_ProcessBackgroundsCopyQueue(void)
+{
+#if (RENDERER == RENDERER_OPENGL)
+    OpenGL_ProcessBackgroundsCopyQueue();
+#endif
+}
+
+void Platform_TransformSprite(Sprite *s, SpriteTransform *transform) { OpenGL_TransformSprite(s, transform); }
+
 void Platform_DisplaySprite(Sprite *sprite, u8 oamPaletteNum)
 {
-    if (sprite->graphics.src == NULL)
+    if (sprite->graphics.src == NULL) {
         return;
+    }
 
 #if (RENDERER == RENDERER_OPENGL)
-        // TEMP - Currently the display buffer gets drawn in software, but we should load the assets as a textures and let OpenGL render
-        // everything
-        //  OpenGL_DisplaySprite(sprite, oamPaletteNum);
-        //  return;
+    // TEMP - Currently the display buffer gets drawn in software, but we should load the assets as a textures and let OpenGL render
+    // everything
+    OpenGL_DisplaySprite(sprite, oamPaletteNum);
+    return;
 #endif
 
     const SpriteOffset *dims = sprite->dimensions;
@@ -343,6 +357,12 @@ void Platform_DisplaySprite(Sprite *sprite, u8 oamPaletteNum)
 
     x = sprite->x;
     y = sprite->y;
+
+    // Effectively unused, but here for accuracy's sake
+    if (sprite->frameFlags & SPRITE_FLAG_GLOBAL_OFFSET) {
+        x -= gSpriteOffset.x;
+        y -= gSpriteOffset.y;
+    }
 
     {
         // TEMP - from sprite.c
@@ -366,53 +386,6 @@ void Platform_DisplaySprite(Sprite *sprite, u8 oamPaletteNum)
                 x -= sprWidth - dims->offsetX;
             } else {
                 x -= dims->offsetX;
-            }
-        }
-    }
-
-    s32 tempX = x;
-    s32 tempY = y;
-
-    u16 widthInTiles = dims->width >> 3;
-
-    for (int frameY = 0; frameY < dims->height; frameY++) {
-        s32 finalY = (tempY + frameY);
-
-        if (finalY < 0)
-            continue;
-
-        if (finalY >= DISPLAY_HEIGHT)
-            break;
-
-        for (int frameX = 0; frameX < dims->width; frameX++) {
-
-            s32 finalX = (tempX + frameX);
-
-            if (finalX < 0)
-                continue;
-
-            if (finalX >= DISPLAY_WIDTH)
-                break;
-
-            int bufferPixelIndex = finalY * DISPLAY_WIDTH + finalX;
-            int imagePixelIndex = frameY * dims->width + frameX;
-
-            if (bufferPixelIndex >= 0 && bufferPixelIndex < DISPLAY_WIDTH * DISPLAY_HEIGHT) {
-                u16 *pal = &PLTT[oamPaletteNum * 16 + (BG_PLTT_SIZE / 2)];
-                u16 tileNumX = (frameX >> 3);
-                u16 tileNumY = (frameY >> 3);
-                u16 tileNum = tileNumY * widthInTiles + tileNumX;
-                u32 offset = tileNum * TILE_SIZE_4BPP;
-
-                u8 *tile = &((u8 *)sprite->graphics.src)[offset];
-
-                u8 colorIndex = ((frameY & 0x7) * 8 + (frameX & 0x7));
-
-                bool8 doShift = (colorIndex & 1);
-                u8 colorId = tile[colorIndex >> 1] & (0xF << (doShift * 4));
-                colorId >>= doShift * 4;
-                if (colorId != 0)
-                    sImageBuffer[bufferPixelIndex] = RGB_SHIFT(pal[colorId]);
             }
         }
     }
@@ -446,7 +419,15 @@ void VBlankIntrWait()
 }
 
 void *Platform_malloc(size_t numBytes) { return HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS | HEAP_ZERO_MEMORY, numBytes); }
-
+void *Platform_realloc(void *ptr, size_t numBytes)
+{
+    if (ptr == NULL) {
+        // HeapReAlloc returns NULL when called with NULL, unlike C std realloc().
+        return HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS | HEAP_ZERO_MEMORY, numBytes);
+    } else {
+        return HeapReAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS | HEAP_ZERO_MEMORY, ptr, numBytes);
+    }
+}
 void Platform_free(void *ptr) { HeapFree(GetProcessHeap(), 0, ptr); }
 
-void Platform_QueueAudio(const u8 *data, u32 numBytes) { }
+void Platform_QueueAudio(const s16 *data, u32 numBytes) { }

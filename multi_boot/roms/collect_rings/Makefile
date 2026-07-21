@@ -81,17 +81,17 @@ ASM_BUILDDIR = $(OBJ_DIR)/$(ASM_SUBDIR)
 DATA_ASM_SUBDIR = data
 DATA_ASM_BUILDDIR = $(OBJ_DIR)/$(DATA_ASM_SUBDIR)
 
-MID_SUBDIR = sound/songs/midi
+MID_SUBDIR = sound/sa2/songs/midi
 MID_BUILDDIR = $(OBJ_DIR)/$(MID_SUBDIR)
 
-SONG_SUBDIR = sound/songs
+SONG_SUBDIR = sound/sa2/songs
 SONG_BUILDDIR = $(OBJ_DIR)/$(SONG_SUBDIR)
 
 SOUND_ASM_SUBDIR = sound
 SOUND_ASM_BUILDDIR = $(OBJ_DIR)/$(SOUND_ASM_SUBDIR)
 
 SAMPLE_SUBDIR = sound/direct_sound_samples
-WAVE_SAMPLES_SUBDIR = sound/programmable_wave_samples
+WAVE_SAMPLES_SUBDIR = sound/shared/programmable_wave_samples
 
 C_SUBDIR = src
 C_BUILDDIR = $(OBJ_DIR)/$(C_SUBDIR)
@@ -116,34 +116,36 @@ SA2_C_FILES := \
 	sa2/sprite.c \
 	sa2/malloc_vram.c \
 	sa2/bg_triangles.c \
-	sa2/game/sa1_sa2_shared/globals.c \
-	sa2/game/multiplayer/multiplayer_event_mgr.c \
-	sa2/game/multiplayer/multiplayer_event_recv_mgr.c \
-	sa2/game/multiboot/collect_rings/results.c \
-	sa2/game/sa1_sa2_shared/entities_manager.c \
-	sa2/game/sa1_sa2_shared/collision.c \
-	sa2/game/mystery_itembox.c \
-	sa2/game/sa1_sa2_shared/rings_manager.c \
-	sa2/game/multiboot/collect_rings/time_display.c \
-	sa2/game/multiplayer/indicators.c \
-	sa2/game/multiplayer/mp_player.c \
-	sa2/game/multiplayer/finish.c \
-	sa2/game/interactables_1/toggle_player_layer.c \
-	sa2/game/sa1_sa2_shared/interactables/spring.c \
-	sa2/game/sa1_sa2_shared/interactables/ramp.c \
-	sa2/game/interactables_1/spikes.c \
-	sa2/game/sa1_sa2_shared/interactables/grind_rail.c \
-	sa2/game/interactables_2/multiplayer_teleport.c \
-	sa2/game/sa1_sa2_shared/dust_cloud.c \
-	sa2/game/sa1_sa2_shared/collect_ring_effect.c \
-	sa2/game/multiplayer/mp_attack_2_effect.c \
-	sa2/game/stage/camera.c \
-	sa2/game/stage/terrain_collision.c \
-	sa2/game/stage/player.c \
-	sa2/game/stage/rings_scatter.c \
-	sa2/game/stage/player_controls.c \
-	sa2/game/stage/stage.c \
-	sa2/game/multiboot/connection.c \
+	sa2/game/globals.c \
+	sa2/game/shared/stage/mp_event_mgr.c \
+	sa2/game/shared/stage/mp_event_recv_mgr.c \
+	sa2/game/shared/collect_rings/results.c \
+	sa2/game/shared/stage/entities_manager.c \
+	sa2/game/shared/stage/collision_1.c \
+	sa2/game/shared/stage/collision_2.c \
+	sa2/game/shared/stage/collision_3.c \
+	sa2/game/sa2/stage/mystery_itembox.c \
+	sa2/game/shared/stage/rings_manager.c \
+	sa2/game/sa2/collect_rings/time_display.c \
+	sa2/game/shared/stage/mp_indicators.c \
+	sa2/game/shared/stage/mp_player.c \
+	sa2/game/shared/stage/mp_finish.c \
+	sa2/game/sa2/stage/interactables/leaf_forest/toggle_player_layer.c \
+	sa2/game/sa2/stage/interactables/spring.c \
+	sa2/game/sa2/stage/interactables/ramp.c \
+	sa2/game/sa2/stage/interactables/leaf_forest/spikes.c \
+	sa2/game/sa2/stage/interactables/grind_rail.c \
+	sa2/game/sa2/stage/interactables/collect_rings_lap_trigger.c \
+	sa2/game/shared/stage/dust_cloud.c \
+	sa2/game/shared/stage/collect_ring_effect.c \
+	sa2/game/sa2/stage/mp_attack_2_effect.c \
+	sa2/game/shared/stage/camera.c \
+	sa2/game/shared/stage/terrain_collision.c \
+	sa2/game/shared/stage/player.c \
+	sa2/game/shared/stage/rings_scatter.c \
+	sa2/game/sa2/stage/player_controls.c \
+	sa2/game/shared/stage/stage.c \
+	sa2/game/sa2/collect_rings/singlepak_connection.c \
 	sa2/game/game.c \
 	sa2/game/dummy_task.c
 
@@ -209,7 +211,7 @@ OBJS_REL := $(patsubst $(OBJ_DIR)/%,%,$(OBJS))
 # -P disables line markers (don't EVER use this, if you want proper debug info!)
 # -I sets an include path
 # -D defines a symbol
-CPPFLAGS ?= -D $(GAME_REGION) -D COLLECT_RINGS_ROM
+CPPFLAGS ?= -D $(GAME_REGION) -D COLLECT_RINGS_ROM -D GAME=$(GAME)
 CC1FLAGS ?= -Wimplicit -Wparentheses -Werror
 
 INCLUDE_SCANINC_ARGS += -I ../../../tools/agbcc/include
@@ -280,7 +282,7 @@ include songs.mk
 
 $(ELF): $(OBJS) $(LDSCRIPT) libagbsyscall
 	@echo "$(LD) -T $(LD_SCRIPT) -Map $(MAP) <objects> <lib>"
-	@$(LD) -T $(LDSCRIPT) -Map $(MAP) $(OBJS) ../../../tools/agbcc/lib/libgcc.a ../../../tools/agbcc/lib/libc.a -L../../../libagbsyscall -lagbsyscall -o $@
+	@$(LD) -T $(LDSCRIPT) -Map $(MAP) $(OBJS) ../../../tools/agbcc/lib/libgcc.a ../../../tools/agbcc/lib/libc.a -L../../../libagbsyscall/build/gba -lagbsyscall -o $@
 
 %.gba: %.elf
 	$(OBJCOPY) -O binary $< $@
@@ -295,7 +297,7 @@ $(C_BUILDDIR)/sa2/%.s: ../../../src/%.s
 	$(shell mkdir -p $(shell dirname '$@'))
 	cp $< $@
 
-$(MID_SUBDIR)/%.mid: ../../../sound/songs/midi/%.mid
+$(MID_SUBDIR)/%.mid: ../../../sound/sa2/songs/midi/%.mid
 	$(shell mkdir -p $(shell dirname '$@'))
 	cp $< $@
 
@@ -308,7 +310,7 @@ $(C_BUILDDIR)/sa2/%.o: $(C_BUILDDIR)/sa2/%.c
 	@echo "$(CC1) <flags> -o $@ $<"
 	@$(shell mkdir -p $(shell dirname '$(C_BUILDDIR)/sa2/$*.i'))
 	@$(CPP) $(CPPFLAGS) $(SA2_INCLUDE_CPP_ARGS) $< -o $(C_BUILDDIR)/sa2/$*.i
-	@$(PREPROC) $(C_BUILDDIR)/sa2/$*.i | $(CC1) $(PROLOGUE_FIX) $(CC1FLAGS) -o $(C_BUILDDIR)/sa2/$*.s -
+	@$(PREPROC) $(C_BUILDDIR)/sa2/$*.i $(PLATFORM) "" | $(CC1) $(PROLOGUE_FIX) $(CC1FLAGS) -o $(C_BUILDDIR)/sa2/$*.s -
 	@printf ".text\n\t.align\t2, 0\n" >> $(C_BUILDDIR)/sa2/$*.s
 	@$(AS) $(ASFLAGS) -I ../../../ $(C_BUILDDIR)/sa2/$*.s -o $@
 
@@ -326,7 +328,7 @@ $(ASM_BUILDDIR)/%.o: $(ASM_SUBDIR)/%.s
 
 $(DATA_ASM_BUILDDIR)/%.o: $(DATA_ASM_SUBDIR)/%.s
 	@echo "$(AS) <flags> -o $@ $<"
-	@$(PREPROC) $< "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@ -
+	@$(PREPROC) $< $(PLATFORM) "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@ -
 
 # Scan the ASM data dependencies to determine if any .inc files have changed
 $(DATA_ASM_BUILDDIR)/%.d: $(DATA_ASM_SUBDIR)/%.s
@@ -340,7 +342,7 @@ endif
 
 $(SONG_BUILDDIR)/%.o: $(SONG_SUBDIR)/%.s
 	@echo "$(AS) <flags> -o $@ $<"
-	@$(PREPROC) $< "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@ -
+	@$(PREPROC) $< $(PLATFORM) "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@ -
 
 libagbsyscall:
 	@$(MAKE) -C ../../../libagbsyscall MODERN=0 PLATFORM=gba CPU_ARCH=arm

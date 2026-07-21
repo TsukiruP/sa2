@@ -160,9 +160,9 @@ include songs.mk
 $(LDSCRIPT):
 	@$(CPP) $(CPPFLAGS) -P ldscript.txt -o $(LDSCRIPT)
 
-$(ELF): $(OBJS) $(LDSCRIPT)
+$(ELF): $(OBJS) $(LDSCRIPT) libagbsyscall
 	@echo "$(LD) -T $(LD_SCRIPT) -Map $(MAP) <objects> <lib>"
-	@$(LD) -T $(LDSCRIPT) -Map $(MAP) $(OBJS) ../tools/agbcc/lib/libgcc.a ../tools/agbcc/lib/libc.a -o $@
+	@$(LD) -T $(LDSCRIPT) -Map $(MAP) $(OBJS) ../tools/agbcc/lib/libgcc.a ../tools/agbcc/lib/libc.a -L../libagbsyscall/build/gba -lagbsyscall -o $@
 
 %.gba: %.elf
 	$(OBJCOPY) -O binary $< $@
@@ -177,7 +177,7 @@ endif
 $(C_BUILDDIR)/%.o : $(C_SUBDIR)/%.c $$(c_dep)
 	@echo "$(CC1) <flags> -o $@ $<"
 	@$(CPP) $(CPPFLAGS) $< -o $(C_BUILDDIR)/$*.i
-	@$(PREPROC) $(C_BUILDDIR)/$*.i | $(CC1) $(CC1FLAGS) -o $(C_BUILDDIR)/$*.s
+	@$(PREPROC) $(C_BUILDDIR)/$*.i $(PLATFORM) "" | $(CC1) $(CC1FLAGS) -o $(C_BUILDDIR)/$*.s
 	@printf ".text\n\t.align\t2, 0\n" >> $(C_BUILDDIR)/$*.s
 	@$(AS) $(ASFLAGS) -o $@ $(C_BUILDDIR)/$*.s
 
@@ -200,11 +200,14 @@ endif
 
 $(DATA_ASM_BUILDDIR)/%.o: $(DATA_ASM_SUBDIR)/%.s $$(data_dep)
 	@echo "$(AS) <flags> -o $@ $<"
-	@$(PREPROC) $< | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@
+	@$(PREPROC) $< $(PLATFORM) "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@
 
 $(SONG_BUILDDIR)/%.o: $(SONG_SUBDIR)/%.s
 	@echo "$(AS) <flags> -I sound -o $@ $<"
 	@$(AS) $(ASFLAGS) -I sound -o $@ $<
+
+libagbsyscall:
+	@$(MAKE) -C ../libagbsyscall MODERN=0 PLATFORM=gba CPU_ARCH=arm
 
 CONTEXT_FLAGS := -DM2C -DPLATFORM_GBA=1 -DGEN_CTX=1 -Dsize_t=int -D "offsetof(TYPE, MEMBER)"="((size_t)&((TYPE *)0)->MEMBER)"
 

@@ -52,6 +52,14 @@ else ifeq ($(CPU_ARCH),i386)
     TOOLCHAIN := /usr/x86_64-w64-mingw32/
     PREFIX := x86_64-w64-mingw32-
   endif
+# PSP
+else ifeq ($(PLATFORM),sdl_psp)
+  PSPDEV    ?= $(HOME)/pspdev
+  PSPSDK    := $(PSPDEV)/psp/sdk
+  export PATH := $(PSPDEV)/bin:$(PATH)
+  PREFIX    := psp-
+else ifeq ($(PLATFORM),ps2)
+  PREFIX := mips64r5900el-ps2-elf-
 else
 # Native
   ifneq ($(PLATFORM),sdl)
@@ -74,6 +82,7 @@ CC1       := tools/agbcc/bin/agbcc$(EXE)
 CC1_OLD   := tools/agbcc/bin/old_agbcc$(EXE)
 else
 CC1       := $(PREFIX)gcc$(EXE)
+CXX       := $(PREFIX)g++$(EXE)
 CC1_OLD   := $(CC1)
 endif
 
@@ -107,7 +116,7 @@ SDL_MINGW_LIB     := $(SDL_MINGW_PKG)/lib
 SDL_MINGW_FLAGS   := -I$(SDL_MINGW_INCLUDE) -D_THREAD_SAFE
 SDL_MINGW_LIBS    := -L$(SDL_MINGW_LIB) -lSDL2main -lSDL2.dll
 
-LIBABGSYSCALL_LIBS := -L$(ROOT_DIR)/libagbsyscall -lagbsyscall
+LIBABGSYSCALL_LIBS := -L$(ROOT_DIR)/libagbsyscall/build/$(PLATFORM) -lagbsyscall
 
 ### FILES ###
 
@@ -120,6 +129,14 @@ else ifeq ($(PLATFORM),sdl)
 ROM      := $(BUILD_NAME).sdl
 ELF      := $(ROM).elf
 MAP      := $(ROM).map
+else ifeq ($(PLATFORM),sdl_psp)
+ROM      := EBOOT.PBP
+ELF      := $(BUILD_NAME).sdl_psp.elf
+MAP      := $(BUILD_NAME).sdl_psp.map
+else ifeq ($(PLATFORM),ps2)
+ROM      := $(BUILD_NAME).$(PLATFORM).iso
+ELF      := $(ROM:.iso=.elf)
+MAP      := $(ROM:.iso=.map)
 else
 ROM      := $(BUILD_NAME).$(PLATFORM).exe
 ELF      := $(ROM:.exe=.elf)
@@ -136,38 +153,59 @@ ASM_BUILDDIR = $(OBJ_DIR)/$(ASM_SUBDIR)
 C_SUBDIR = src
 C_BUILDDIR = $(OBJ_DIR)/$(C_SUBDIR)
 
-DATA_ASM_SUBDIR = data
+DATA_ASM_SUBDIR = data/$(GAME_NAME)
 DATA_ASM_BUILDDIR = $(OBJ_DIR)/$(DATA_ASM_SUBDIR)
 
-SONG_SUBDIR = sound/songs
+SONG_SUBDIR = sound/$(GAME_NAME)/songs
 SONG_BUILDDIR = $(OBJ_DIR)/$(SONG_SUBDIR)
 
 SOUND_ASM_SUBDIR = sound
 SOUND_ASM_BUILDDIR = $(OBJ_DIR)/$(SOUND_ASM_SUBDIR)
 
-MID_SUBDIR = sound/songs/midi
+MID_SUBDIR = sound/$(GAME_NAME)/songs/midi
 MID_BUILDDIR = $(OBJ_DIR)/$(MID_SUBDIR)
 
-SAMPLE_SUBDIR = sound/direct_sound_samples
+SAMPLE_SUBDIR = sound/$(GAME_NAME)/direct_sound_samples
+SHARED_SAMPLE_SUBDIR = sound/shared/direct_sound_samples
 
-OBJ_TILES_4BPP_SUBDIR = graphics/obj_tiles/4bpp
-TILESETS_SUBDIR = graphics/tilesets/
+OBJ_TILES_4BPP_SUBDIR = graphics/$(GAME_NAME)/obj_tiles/4bpp
+TILESETS_SUBDIR = graphics/$(GAME_NAME)/tilesets/
+
+ifeq ($(GAME), GAME_SA1)
+C_SRC_IGNORE_PATHS := -not -path "*/sa2/*"
+else ifeq ($(GAME), GAME_SA2)
+C_SRC_IGNORE_PATHS := -not -path "*/sa1/*"
+endif
 
 ifeq ($(PLATFORM),gba)
-C_SRCS := $(shell find $(C_SUBDIR) -name "*.c" -not -path "*/platform/*")
+C_SRCS_IN := $(shell find $(C_SUBDIR) -name "*.c" $(C_SRC_IGNORE_PATHS) -not -path "*/platform/*")
 else ifeq ($(PLATFORM),sdl)
-C_SRCS := $(shell find $(C_SUBDIR) -name "*.c" -not -path "*/platform/win32/*")
+C_SRCS_IN := $(shell find $(C_SUBDIR) -name "*.c" $(C_SRC_IGNORE_PATHS) -not -path "*/platform/win32/*" -not -path "*/platform/ps2/*")
+else ifeq ($(PLATFORM),sdl_psp)
+C_SRCS_IN := $(shell find $(C_SUBDIR) -name "*.c" $(C_SRC_IGNORE_PATHS) -not -path "*/platform/win32/*" -not -path "*/platform/ps2/*")
+else ifeq ($(PLATFORM),ps2)
+C_SRCS_IN := $(shell find $(C_SUBDIR) -name "*.c" $(C_SRC_IGNORE_PATHS) -not -path "*/platform/win32/*" -not -path "*/platform/pret_sdl/*")
 else ifeq ($(PLATFORM),sdl_win32)
-C_SRCS := $(shell find $(C_SUBDIR) -name "*.c" -not -path "*/platform/win32/*")
+C_SRCS_IN := $(shell find $(C_SUBDIR) -name "*.c" $(C_SRC_IGNORE_PATHS) -not -path "*/platform/win32/*" -not -path "*/platform/ps2/*")
 else ifeq ($(PLATFORM),win32)
-C_SRCS := $(shell find $(C_SUBDIR) -name "*.c" -not -path "*/platform/pret_sdl/*")
+C_SRCS_IN := $(shell find $(C_SUBDIR) -name "*.c" $(C_SRC_IGNORE_PATHS) -not -path "*/platform/pret_sdl/*" -not -path "*/platform/ps2/*")
 else
-C_SRCS := $(shell find $(C_SUBDIR) -name "*.c")
+C_SRCS_IN := $(shell find $(C_SUBDIR) -name "*.c" $(C_SRC_IGNORE_PATHS))
 endif
+
+C_SRCS := $(foreach src,$(C_SRCS_IN),$(if $(findstring .inc.c,$(src)),,$(src)))
 C_OBJS := $(patsubst $(C_SUBDIR)/%.c,$(C_BUILDDIR)/%.o,$(C_SRCS))
 
+ifeq ($(PLATFORM),gba)
+CXX_SRCS := $(shell find $(C_SUBDIR) -name "*.cc" -not -path "*/platform/*")
+else
+CXX_SRCS := $(shell find $(C_SUBDIR) -name "*.cc")
+endif
+
+CXX_OBJS := $(patsubst $(C_SUBDIR)/%.cc,$(C_BUILDDIR)/%.o,$(CXX_SRCS))
+
 # Platform not included as we only need the headers for decomp scratches
-C_HEADERS := $(shell find $(INCLUDE_DIRS) -name "*.h" -not -path "*/platform/*")
+C_HEADERS := $(shell find $(INCLUDE_DIRS) -name "*.h" -not -path "*/sa1/*" -not -path "*/platform/*")
 
 ifeq ($(PLATFORM),gba)
 C_ASM_SRCS := $(shell find $(C_SUBDIR) -name "*.s")
@@ -189,7 +227,7 @@ MID_OBJS := $(patsubst $(MID_SUBDIR)/%.mid,$(MID_BUILDDIR)/%.o,$(MID_SRCS))
 SOUND_ASM_SRCS := $(wildcard $(SOUND_ASM_SUBDIR)/*.s)
 SOUND_ASM_OBJS := $(patsubst $(SOUND_ASM_SUBDIR)/%.s,$(SOUND_ASM_BUILDDIR)/%.o,$(SOUND_ASM_SRCS))
 
-OBJS := $(C_OBJS) $(ASM_OBJS) $(C_ASM_OBJS) $(DATA_ASM_OBJS) $(SONG_OBJS) $(MID_OBJS)
+OBJS := $(C_OBJS) $(CXX_OBJS) $(ASM_OBJS) $(C_ASM_OBJS) $(DATA_ASM_OBJS) $(SONG_OBJS) $(MID_OBJS)
 OBJS_REL := $(patsubst $(OBJ_DIR)/%,%,$(OBJS))
 
 FORMAT_SRC_PATHS := $(shell find . -name "*.c" ! -path '*/src/data/*' ! -path '*/build/*' ! -path '*/ext/*')
@@ -200,7 +238,7 @@ FORMAT_H_PATHS   := $(shell find . -name "*.h" ! -path '*/build/*' ! -path '*/ex
 # -P disables line markers (don't EVER use this, if you want proper debug info!)
 # -I sets an include path
 # -D defines a symbol
-CPPFLAGS ?= $(INCLUDE_CPP_ARGS) -D $(GAME_REGION)
+CPPFLAGS ?= $(INCLUDE_CPP_ARGS) -D $(GAME_REGION) -D GAME=$(GAME)
 CC1FLAGS ?= -Wimplicit -Wparentheses -Werror
 
 ifneq ($(GAME_VARIANT), DEFAULT)
@@ -215,7 +253,7 @@ ifeq ($(PLATFORM),gba)
 	CPPFLAGS += -D PLATFORM_GBA=1 -D PLATFORM_SDL=0 -D PLATFORM_WIN32=0 -D CPU_ARCH_X86=0 -D CPU_ARCH_ARM=1 -nostdinc -I tools/agbcc/include
 	CC1FLAGS += -fhex-asm
 
-ifeq ($(BUILD_NAME), sa1)
+ifeq ($(GAME_NAME), sa1)
     # It seems this bug was introduced to GCC after SA1 released.
     PROLOGUE_FIX := -fprologue-bugfix
 endif # BUILD_NAME == sa1
@@ -225,6 +263,12 @@ else
 	ifeq ($(PLATFORM),sdl)
 		CC1FLAGS += -Wno-parentheses-equality -Wno-unused-value
 		CPPFLAGS += -D TITLE_BAR=$(BUILD_NAME).$(PLATFORM) -D PLATFORM_GBA=0 -D PLATFORM_SDL=1 -D PLATFORM_WIN32=0 $(shell sdl2-config --cflags)
+	else ifeq ($(PLATFORM),sdl_psp)
+		CC1FLAGS += -G0
+		CPPFLAGS += -D PLATFORM_GBA=0 -D PLATFORM_SDL=1 -D PLATFORM_WIN32=0 -D SDL_MAIN_HANDLED -I$(PSPDEV)/psp/include/SDL2 -I$(PSPDEV)/psp/include -I$(PSPSDK)/include -D_PSP_FW_VERSION=600
+	else ifeq ($(PLATFORM),ps2)
+		CC1FLAGS += -G0 -Wno-parentheses-equality -Wno-unused-value -ffast-math
+		CPPFLAGS += -D PLATFORM_GBA=0 -D PLATFORM_SDL=0 -D PLATFORM_WIN32=0 -D_EE -D__PS2__ -I$(PS2SDK)/common/include -I$(PS2SDK)/ee/include -I$(PS2DEV)/gsKit/include -I$(PS2SDK)/ports/include
 	else ifeq ($(PLATFORM),sdl_win32)
 		CPPFLAGS += -D TITLE_BAR=$(BUILD_NAME).$(PLATFORM) -D PLATFORM_GBA=0 -D PLATFORM_SDL=1 -D PLATFORM_WIN32=0 $(SDL_MINGW_FLAGS)
 	else ifeq ($(PLATFORM),win32)
@@ -241,24 +285,18 @@ else
 	endif
 endif
 
-ifeq ($(PLATFORM),gba)
-  ASFLAGS  += -mcpu=arm7tdmi -mthumb-interwork
-  CC1FLAGS += -mthumb-interwork
-else
-  ifeq ($(PLATFORM), sdl)
-    # for modern we are using a modern compiler
-    # so instead of CPP we can use gcc -E to "preprocess only"
-    CPP := $(CC1) -E
-  endif
-  # Allow file input through stdin on modern GCC and set it to "compile only"
-  CC1FLAGS += -x c -S
-endif
-
 ifeq ($(DEBUG),1)
   CC1FLAGS += -g3 -O0
   CPPFLAGS += -D DEBUG=1
 else
-  CC1FLAGS += -O2
+  ifeq ($(PLATFORM),sdl_psp)
+    # -O3 for PSP (Allegrex MIPS, small D-cache)
+    CC1FLAGS += -O3 -funroll-loops -fomit-frame-pointer
+  else ifeq ($(PLATFORM),ps2)
+    CC1FLAGS += -O3 -fomit-frame-pointer
+  else
+    CC1FLAGS += -O2
+  endif
   CPPFLAGS += -D DEBUG=0
 endif
 
@@ -285,6 +323,26 @@ else
   CPPFLAGS += -D ENABLE_DECOMP_CREDITS=1
 endif
 
+CXXFLAGS := $(CC1FLAGS) $(CPPFLAGS) -fno-rtti -fno-exceptions -std=c++11
+
+ifeq ($(PLATFORM),gba)
+  ASFLAGS  += -mcpu=arm7tdmi -mthumb-interwork
+  CC1FLAGS += -mthumb-interwork
+else
+  ifeq ($(PLATFORM), sdl)
+    # for modern we are using a modern compiler
+    # so instead of CPP we can use gcc -E to "preprocess only"
+    CPP := $(CC1) -E
+  else ifeq ($(PLATFORM), sdl_psp)
+    CPP := $(CC1) -E
+  else ifeq ($(PLATFORM), ps2)
+    ASFLAGS  += -msingle-float
+  endif
+  # Allow file input through stdin on modern gcc/g++ and set it to "compile only"
+  CC1FLAGS += -x c -S
+  CXXFLAGS += -x c++ -S
+endif
+
 ### LINKER FLAGS ###
 
 # GBA
@@ -297,7 +355,7 @@ else ifeq ($(PLATFORM),sdl)
     else
         MAP_FLAG := -Xlinker -Map=
     endif
-# Win32
+# Win32, PSP, PS2
 else
     MAP_FLAG := -Xlinker -Map=
 endif
@@ -306,9 +364,13 @@ endif
 ifeq ($(PLATFORM),gba)
     LIBS := $(ROOT_DIR)/tools/agbcc/lib/libgcc.a $(ROOT_DIR)/tools/agbcc/lib/libc.a $(LIBABGSYSCALL_LIBS)
 else ifeq ($(PLATFORM),sdl)
-    LIBS := $(shell sdl2-config --cflags --libs)
+    LIBS := $(shell sdl2-config --cflags --libs) $(LIBABGSYSCALL_LIBS) -lm
+else ifeq ($(PLATFORM),sdl_psp)
+    LIBS := -L$(PSPDEV)/psp/lib $(LIBABGSYSCALL_LIBS) -L$(PSPSDK)/lib -lSDL2 -lm -lGL -lpspvram -lpspaudio -lpspvfpu -lpspdisplay -lpspgu -lpspge -lpsphprm -lpspctrl -lpsppower -lpspdebug -lpspnet -lpspnet_apctl -Wl,-zmax-page-size=128
+else ifeq ($(PLATFORM),ps2)
+    LIBS := -T$(PS2SDK)/ee/startup/linkfile $(LIBABGSYSCALL_LIBS) -L$(PS2SDK)/common/lib -L$(PS2SDK)/ee/lib -L$(PS2DEV)/gsKit/lib -L$(PS2SDK)/ports/lib -lgskit -ldmakit -lps2_drivers -lmc -lpatches -Wl,-zmax-page-size=128
 else ifeq ($(PLATFORM),sdl_win32)
-    LIBS := -mwin32 -lkernel32 -lwinmm -lmingw32 -lxinput $(SDL_MINGW_LIBS)
+    LIBS := -mwin32 -lkernel32 -lwinmm -lmingw32 -lxinput $(LIBABGSYSCALL_LIBS) $(SDL_MINGW_LIBS)
 else ifeq ($(PLATFORM), win32)
     LIBS := -mwin32 -lkernel32 -lwinmm -lgdi32 -lxinput -lopengl32 $(LIBABGSYSCALL_LIBS)
 endif
@@ -316,7 +378,7 @@ endif
 #### MAIN TARGETS ####
 
 # these commands will run regardless of deps being completed
-.PHONY: clean tools tidy clean-tools $(TOOLDIRS) libagbsyscall
+.PHONY: clean tools tidy clean-tools $(TOOLDIRS) libagbsyscall ps2 sa1
 
 # Ensure required directories exist
 $(shell mkdir -p $(C_BUILDDIR) $(ASM_BUILDDIR) $(DATA_ASM_BUILDDIR) $(SOUND_ASM_BUILDDIR) $(SONG_BUILDDIR) $(MID_BUILDDIR))
@@ -388,8 +450,12 @@ clean: tidy clean-tools
 	@$(MAKE) clean -C multi_boot/collect_rings
 	@$(MAKE) clean -C libagbsyscall PLATFORM=$(PLATFORM) CPU_ARCH=$(CPU_ARCH)
 
-	$(RM) $(SAMPLE_SUBDIR)/*.bin $(MID_SUBDIR)/*.s
-	find . \( -iwholename './data/maps/*/*/entities/*.bin' -o -iname '*.1bpp' -o -iname '*.4bpp' -o -iname '*.8bpp' -o -iname '*.gbapal' -o -iname '*.lz' -o -iname '*.rl' -o -iname '*.latfont' -o -iname '*.hwjpnfont' -o -iname '*.fwjpnfont' \) -exec $(RM) {} +
+ifneq ($(GAME_NAME),sa1)
+	find sound \( -iname '*.bin' \) -exec $(RM) {} +
+	find . \( -iwholename './data/*/maps/*/*/entities/*.bin' -o -iname '*.1bpp' -o -iname '*.4bpp' -o -iname '*.8bpp' -o -iname '*.gbapal' -o -iname '*.lz' -o -iname '*.rl' -o -iname '*.latfont' -o -iname '*.hwjpnfont' -o -iname '*.fwjpnfont' \) -exec $(RM) {} +
+
+	@$(MAKE) clean GAME_NAME=sa1
+endif
 
 clean-tools:
 	@$(foreach tooldir,$(TOOLDIRS),$(MAKE) clean -C $(tooldir);)
@@ -397,7 +463,8 @@ clean-tools:
 tidy:
 	$(RM) -r build/*
 	$(RM) SDL2.dll
-	$(RM) $(BUILD_NAME)*.exe $(BUILD_NAME)*.elf $(BUILD_NAME)*.map $(BUILD_NAME)*.sdl $(BUILD_NAME)*.gba
+	$(RM) $(BUILD_NAME)*.exe $(BUILD_NAME)*.elf $(BUILD_NAME)*.map $(BUILD_NAME)*.sdl $(BUILD_NAME)*.gba $(BUILD_NAME)*.iso
+	$(RM) EBOOT.PBP PARAM.SFO
 
 usa_beta: ; @$(MAKE) GAME_REGION=USA GAME_VARIANT=BETA
 
@@ -409,6 +476,10 @@ europe: ; @$(MAKE) GAME_REGION=EUROPE
 
 sdl: ; @$(MAKE) PLATFORM=sdl
 
+sdl_psp: ; @$(MAKE) PLATFORM=sdl_psp
+
+ps2: ; @$(MAKE) PLATFORM=ps2
+
 tas_sdl: ; @$(MAKE) sdl TAS_TESTING=1
 
 sdl_win32:
@@ -418,7 +489,7 @@ win32: ; @$(MAKE) PLATFORM=win32 CPU_ARCH=i386
 
 #### RECIPES ####
 
-include songs.mk
+include $(GAME_NAME)_songs.mk
 include graphics.mk
 
 %.s: ;
@@ -434,17 +505,17 @@ include graphics.mk
 chao_garden/mb_chao_garden.gba.lz: chao_garden/mb_chao_garden.gba 
 	$(GFX) $< $@ -search 1
     
-data/mb_chao_garden_japan.gba.lz: data/mb_chao_garden_japan.gba
+data/$(GAME_NAME)/mb_chao_garden_japan.gba.lz: data/$(GAME_NAME)/mb_chao_garden_japan.gba
 	$(GFX) $< $@ -search 1
 
 %interactables.bin: %interactables.csv
-	$(ENT_POS) $< $@ -entities INTERACTABLES -header "./include/constants/interactables.h"
+	$(ENT_POS) $< $@ -entities INTERACTABLES -header "./include/constants/$(GAME_NAME)/interactables.h"
 
 %itemboxes.bin: %itemboxes.csv
-	$(ENT_POS) $< $@ -entities ITEMS -header "./include/constants/items.h"
+	$(ENT_POS) $< $@ -entities ITEMS -header "./include/constants/$(GAME_NAME)/items.h"
 
 %enemies.bin: %enemies.csv
-	$(ENT_POS) $< $@ -entities ENEMIES -header "./include/constants/enemies.h"
+	$(ENT_POS) $< $@ -entities ENEMIES -header "./include/constants/$(GAME_NAME)/enemies.h"
 
 %rings.bin: %rings.csv
 	$(ENT_POS) $< $@ -entities RINGS
@@ -459,7 +530,7 @@ data/mb_chao_garden_japan.gba.lz: data/mb_chao_garden_japan.gba
 
 %.bin: %.aif ; $(AIF) $< $@
 
-$(ELF): $(OBJS) libagbsyscall
+$(ELF): $(OBJS)
 ifeq ($(PLATFORM),gba)
 	@echo "$(LD) -T $(LDSCRIPT) $(MAP_FLAG) $(MAP) <objects> <lib> -o $@"
 	@$(CPP) -P $(CPPFLAGS) $(LDSCRIPT) > $(OBJ_DIR)/$(LDSCRIPT)
@@ -470,12 +541,28 @@ else
 	@cd $(OBJ_DIR) && $(CC1) $(MAP_FLAG)$(ROOT_DIR)/$(MAP) $(OBJS_REL) $(LIBS) -o $(ROOT_DIR)/$@
 endif
 
-$(ROM): $(ELF)
+
+$(ROM): $(ELF) libagbsyscall
 ifeq ($(PLATFORM),gba)
 	$(OBJCOPY) -O binary --pad-to 0x8400000 $< $@
 	$(FIX) $@ -p -t"$(TITLE)" -c$(GAME_CODE) -m$(MAKER_CODE) -r$(GAME_REVISION) --silent
+else ifeq ($(PLATFORM),win32)
+	$(OBJCOPY) -O pei-x86-64 $< $@
 else ifeq ($(PLATFORM),sdl)
 	cp $< $@
+else ifeq ($(PLATFORM),sdl_psp)
+	@echo Creating $(ROM) from $(ELF)
+	@psp-fixup-imports $<
+	@mksfoex 'Sonic Advance 2' PARAM.SFO
+	@psp-strip $< -o $(BUILD_NAME).psp_strip.elf
+	@pack-pbp $@ PARAM.SFO NULL NULL NULL NULL NULL $(BUILD_NAME).psp_strip.elf NULL
+	@-rm -f $(BUILD_NAME).psp_strip.elf
+else ifeq ($(PLATFORM),ps2)
+	@echo Creating $(ROM) from $(ELF)
+	@mkdir -p $(OBJ_DIR)/iso
+	@printf "BOOT2 = cdrom0:\\$(PS2_GAME_CODE);1\nVER = 1.00\nVMODE = NTSC" > $(OBJ_DIR)/iso/SYSTEM.CNF
+	@cp $< $(OBJ_DIR)/iso/$(PS2_GAME_CODE)
+	@mkisofs -o $(ROM) $(OBJ_DIR)/iso/
 else
 	$(OBJCOPY) -O pei-x86-64 $< $@
 endif
@@ -485,14 +572,24 @@ $(C_BUILDDIR)/%.o: $(C_SUBDIR)/%.c
 	@echo "$(CC1) <flags> -o $@ $<"
 	@$(shell mkdir -p $(shell dirname '$(C_BUILDDIR)/$*.i'))
 	@$(CPP) $(CPPFLAGS) $< -o $(C_BUILDDIR)/$*.i
-	@$(PREPROC) $(C_BUILDDIR)/$*.i | $(CC1) $(PROLOGUE_FIX) $(CC1FLAGS) -o $(C_BUILDDIR)/$*.s -
+	@$(PREPROC) $(C_BUILDDIR)/$*.i $(PLATFORM) "" | $(CC1) $(PROLOGUE_FIX) $(CC1FLAGS) -o $(C_BUILDDIR)/$*.s -
 ifeq ($(PLATFORM), gba)
 	@printf ".text\n\t.align\t2, 0\n" >> $(C_BUILDDIR)/$*.s
 endif
 	@$(AS) $(ASFLAGS) $(C_BUILDDIR)/$*.s -o $@
 
+$(C_BUILDDIR)/%.o: $(C_SUBDIR)/%.cc
+	@echo "$(CXX) <flags> -o $@ $<"
+	@$(shell mkdir -p $(shell dirname '$(C_BUILDDIR)/$*.o'))
+	@$(CXX) $(CXXFLAGS) -o $(C_BUILDDIR)/$*.s $<
+	@$(AS) $(ASFLAGS) $(C_BUILDDIR)/$*.s -o $@
+
 # Scan the src dependencies to determine if any dependent files have changed
 $(C_BUILDDIR)/%.d: $(C_SUBDIR)/%.c
+	@$(shell mkdir -p $(shell dirname '$(C_BUILDDIR)/$*.d'))
+	$(SCANINC) -M $@ $(INCLUDE_SCANINC_ARGS) $<
+
+$(C_BUILDDIR)/%.d: $(C_SUBDIR)/%.cc
 	@$(shell mkdir -p $(shell dirname '$(C_BUILDDIR)/$*.d'))
 	$(SCANINC) -M $@ $(INCLUDE_SCANINC_ARGS) $<
 
@@ -507,7 +604,7 @@ $(ASM_BUILDDIR)/%.o: $(ASM_SUBDIR)/%.s
 
 $(DATA_ASM_BUILDDIR)/%.o: $(DATA_ASM_SUBDIR)/%.s
 	@echo "$(AS) <flags> -o $@ $<"
-	@$(PREPROC) $< "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@ -
+	@$(PREPROC) $< $(PLATFORM) "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@ -
 
 # Scan the ASM data dependencies to determine if any .inc files have changed
 $(DATA_ASM_BUILDDIR)/%.d: $(DATA_ASM_SUBDIR)/%.s
@@ -515,12 +612,13 @@ $(DATA_ASM_BUILDDIR)/%.d: $(DATA_ASM_SUBDIR)/%.s
     
 ifneq ($(NODEP),1)
 -include $(addprefix $(OBJ_DIR)/,$(C_SRCS:.c=.d))
+-include $(addprefix $(OBJ_DIR)/,$(CXX_SRCS:.cc=.d))
 -include $(addprefix $(OBJ_DIR)/,$(DATA_ASM_SRCS:.s=.d))
 endif
 
 $(SONG_BUILDDIR)/%.o: $(SONG_SUBDIR)/%.s
 	@echo "$(AS) <flags> -o $@ $<"
-	@$(PREPROC) $< "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@ -
+	@$(PREPROC) $< $(PLATFORM) "" | $(CPP) $(CPPFLAGS) - | $(AS) $(ASFLAGS) -o $@ -
 
 ### SUB-PROGRAMS ###
 
@@ -576,6 +674,14 @@ libagbsyscall:
 bribasa:
 	@$(MAKE) -C tools/BriBaSA_ex
 
+sa1:
+	@$(MAKE) GAME_NAME=sa1
+
+sa2:
+	@$(MAKE) GAME_NAME=sa2
+
+trilogy: sa1 sa2
+
 $(TOOLDIRS): tool_libs
 	@$(MAKE) -C $@
     
@@ -603,5 +709,5 @@ check_format:
 
 ctx.c: $(C_HEADERS)
 	@for header in $(C_HEADERS); do echo "#include \"$$header\""; done > ctx.h
-	gcc -P -E -dD -undef -nostdinc -I include -D GEN_CTX=1 -D PLATFORM_GBA=1 ctx.h | sed '/^#define __STDC/d' | sed '1s|^|#include <stdint.h>\n|' > ctx.c
+	gcc -P -E -dD -undef -nostdinc -I include -D GEN_CTX=1 -D PLATFORM_GBA=1 -D GAME=GAME_SA2 ctx.h | sed '/^#define __STDC/d' | sed '1s|^|#include <stdint.h>\n|' > ctx.c
 	@rm ctx.h

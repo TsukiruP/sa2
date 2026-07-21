@@ -3,6 +3,8 @@
 
 #include "trig.h"
 
+// This module was only introduced in sa2+
+#if (GAME != GAME_SA1)
 // TODO: This is just UNK_8085F1C_1
 typedef struct {
     s16 unk0;
@@ -55,6 +57,7 @@ const u16 gUnknown_080E0290[] = { 0x0AAA, 0x02AA };
 #define RAND_CONST 0x37119371;
 
 #define Q_6_10_MUL(qValA, qValB) ((qValA * qValB) >> 10)
+#define Q_6_10(n)                ((int)((n) >> 10))
 
 NONMATCH("asm/non_matching/game/math/unused_sub_80832FC.inc", void sub_80832FC()) { }
 END_NONMATCH
@@ -169,8 +172,18 @@ void sub_8083798(UNK_8085D14_2 *arg0)
     arg0->unkC = (0 - arg0->unkC);
 }
 
-NONMATCH("asm/non_matching/game/math/unused_sub_8083858.inc", void sub_8083858()) { }
-END_NONMATCH
+void sub_8083858(UNK_8085D14 *arg0) // Matches accesses but possibly a different struct?
+{
+    s32 temp_r0;
+    s32 temp_r1_3;
+
+    temp_r0 = SQUARE(arg0->unk0) + SQUARE(arg0->unk2) + SQUARE(arg0->unk4) + SQUARE(arg0->unk6);
+    temp_r1_3 = 0x100000 / Sqrt(temp_r0);
+    arg0->unk0 = Q_6_10_MUL(arg0->unk0, temp_r1_3);
+    arg0->unk2 = Q_6_10_MUL(arg0->unk2, temp_r1_3);
+    arg0->unk4 = Q_6_10_MUL(arg0->unk4, temp_r1_3);
+    arg0->unk6 = Q_6_10_MUL(arg0->unk6, temp_r1_3);
+}
 
 void sub_80838CC(UNK_8085D14 *arg0, UNK_8085D14 *arg1, UNK_8085D14 *arg2)
 {
@@ -191,11 +204,38 @@ void sub_808399C(UNK_8085D14 *arg0, UNK_8085D14 *arg1)
     arg0->unk6 = ((((arg0->unk6 * arg1->unk6) - (r6 * arg1->unk0)) - (r5 * arg1->unk2)) - (r4 * arg1->unk4)) >> 10;
 }
 
-NONMATCH("asm/non_matching/game/math/unused_sub_8083A48.inc", void sub_8083A48()) { }
-END_NONMATCH
+// Might be possible to reduce further
+void sub_8083A48(UNK_8085D14 *arg0, UNK_8085D14 *arg1)
+{
+    s16 temp_r8 = arg1->unk0;
+    s16 temp_r5;
+    s16 temp_r6;
+    s32 temp;
 
-NONMATCH("asm/non_matching/game/math/unused_sub_8083B10.inc", void sub_8083B10()) { }
-END_NONMATCH
+    temp = arg0->unk6 * temp_r8 + arg0->unk0 * arg1->unk6;
+    temp_r6 = arg1->unk4;
+    temp += arg0->unk2 * temp_r6;
+    temp_r5 = arg1->unk2;
+    temp -= arg0->unk4 * temp_r5;
+
+    arg1->unk0 = Q_6_10(temp);
+    arg1->unk2 = Q_6_10(arg0->unk6 * temp_r5 - arg0->unk0 * temp_r6 + arg0->unk2 * arg1->unk6 + arg0->unk4 * temp_r8);
+    arg1->unk4 = Q_6_10(arg0->unk6 * temp_r6 + arg0->unk0 * temp_r5 - arg0->unk2 * temp_r8 + arg0->unk4 * arg1->unk6);
+    arg1->unk6 = Q_6_10(arg0->unk6 * arg1->unk6 - arg0->unk0 * temp_r8 - arg0->unk2 * temp_r5 - arg0->unk4 * temp_r6);
+}
+
+void sub_8083B10(UNK_8085D14 *arg0) // Matches accesses but possibly a different struct?
+{
+    s32 temp_r0;
+    s32 temp_r1_3;
+
+    temp_r0 = SQUARE(arg0->unk0) + SQUARE(arg0->unk2) + SQUARE(arg0->unk4) + SQUARE(arg0->unk6);
+    temp_r1_3 = 0x100000 / Sqrt(temp_r0);
+    arg0->unk0 = Q_6_10_MUL(-arg0->unk0, temp_r1_3);
+    arg0->unk2 = Q_6_10_MUL(-arg0->unk2, temp_r1_3);
+    arg0->unk4 = Q_6_10_MUL(-arg0->unk4, temp_r1_3);
+    arg0->unk6 = Q_6_10_MUL(arg0->unk6, temp_r1_3);
+}
 
 // This is used in this file, but it's not used by the game
 NONMATCH("asm/non_matching/game/math/unused_sub_8083B88.inc",
@@ -288,9 +328,44 @@ void sub_80849C4(UNK_8085D14 *arg0, u16 arg1)
     arg0->unkA = temp_r0;
 }
 
-// https://decomp.me/scratch/hG6JM
-NONMATCH("asm/non_matching/game/math/unused_sub_8084A24.inc", void sub_8084A24()) { }
-END_NONMATCH
+void sub_8084A24(UNK_8085D14 *arg0, u16 arg1, UNK_8085D14 *arg2)
+{
+    s16 temp_r1;
+    s16 temp_r2;
+    s16 temp_r4;
+    s16 temp_r5;
+    s32 temp_r6;
+    s32 *r1;
+    u8 i;
+
+    r1 = (s32 *)arg0;
+    for (i = 0; i < sizeof(UNK_8085D14); i += 4) {
+        *r1++ = 0;
+    };
+
+    ((UNK_8085D14 *)r1)->unk12 = 0x400;
+    ((UNK_8085D14 *)r1)->unkA = 0x400;
+    ((UNK_8085D14 *)r1)->unk2 = 0x400;
+
+    temp_r5 = SIN(arg1) >> 4;
+    temp_r6 = COS(arg1) >> 4;
+
+    temp_r1 = (((Q_6_10_MUL(arg2->unk0, arg2->unk2)) * (0x400 - temp_r6)) << 6) >> 0x10;
+    temp_r4 = (((Q_6_10_MUL(arg2->unk2, arg2->unk4)) * (0x400 - temp_r6)) << 6) >> 0x10;
+    temp_r2 = (((Q_6_10_MUL(arg2->unk0, arg2->unk4)) * (0x400 - temp_r6)) << 6) >> 0x10;
+
+    arg0->unk2 = temp_r6 + (Q_6_10_MUL((Q_6_10_MUL(arg2->unk0, arg2->unk0)), (0x400 - temp_r6)));
+    arg0->unk4 = temp_r1 + (Q_6_10_MUL(arg2->unk4, temp_r5));
+    arg0->unk6 = temp_r2 - (Q_6_10_MUL(arg2->unk2, temp_r5));
+    arg0->unk8 = temp_r1 - (Q_6_10_MUL(arg2->unk4, temp_r5));
+
+    arg0->unkA = temp_r6 + (Q_6_10_MUL((Q_6_10_MUL(arg2->unk2, arg2->unk2)), (0x400 - temp_r6)));
+    arg0->unkC = temp_r4 + (Q_6_10_MUL(arg2->unk0, temp_r5));
+    arg0->unkE = temp_r2 + (Q_6_10_MUL(arg2->unk2, temp_r5));
+    arg0->unk10 = temp_r4 - (Q_6_10_MUL(arg2->unk0, temp_r5));
+
+    arg0->unk12 = temp_r6 + (Q_6_10_MUL((Q_6_10_MUL(arg2->unk4, arg2->unk4)), (0x400 - temp_r6)));
+}
 
 // This is used in this file, but it's not used by the game
 void sub_8084B54(struct UNK_8085F1C_1 *matrix, u16 anglez, u16 angley, u16 anglex)
@@ -321,9 +396,12 @@ void sub_8084B54(struct UNK_8085F1C_1 *matrix, u16 anglez, u16 angley, u16 angle
 NONMATCH("asm/non_matching/game/math/unused_sub_8084C70.inc", void sub_8084C70()) { }
 END_NONMATCH
 
-// https://decomp.me/scratch/zRCAD
-NONMATCH("asm/non_matching/game/math/unused_sub_8084EAC.inc", void sub_8084EAC()) { }
-END_NONMATCH
+void sub_8084EAC(UNK_8085D14 *arg0)
+{
+    XOR_SWAP_2(arg0->unk4, arg0->unk8);
+    XOR_SWAP_2(arg0->unk6, arg0->unkE);
+    XOR_SWAP_2(arg0->unkC, arg0->unk10);
+}
 
 NONMATCH("asm/non_matching/game/math/unused_sub_8084EE0.inc", void sub_8084EE0()) { }
 END_NONMATCH
@@ -1009,3 +1087,4 @@ UNUSED void sub_8085F84(void)
 {
     // unused
 }
+#endif

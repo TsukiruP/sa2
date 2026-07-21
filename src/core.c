@@ -4,6 +4,7 @@
 #include "malloc_vram.h"
 #include "multi_sio.h"
 #include "sprite.h"
+#include "background.h"
 #include "task.h"
 #include "flags.h"
 #include "input_recorder.h"
@@ -17,8 +18,8 @@ typedef bool32 (*VBlankProcessFunc)(void);
 
 IntrFunc gIntrTable[] = {};
 u32 gIntrMainBuf[] = {};
-struct Task gTasks[] = {};
-u16 SA2_LABEL(gUnknown_030017F0) ALIGNED(4) = 0;
+Task gTasks[] = {};
+u16 gSpriteTransformScaleX ALIGNED(4) = 0;
 Vec2_16 gSpriteOffset ALIGNED(4) = {};
 Background *gBackgroundsCopyQueue[] ALIGNED(16) = {};
 u32 gFlags = 0;
@@ -35,9 +36,9 @@ union MultiSioData gMultiSioRecv[4] = {};
 u32 gUnknown_03002BF0 = 0;
 #endif
 u8 gNumHBlankIntrs = 0;
-struct BlendRegs gBldRegs ALIGNED(8) = {};
+BlendRegs gBldRegs ALIGNED(8) = {};
 u8 gOamFreeIndex = 0;
-struct Task gEmptyTask ALIGNED(16) = {};
+Task gEmptyTask ALIGNED(16) = {};
 
 #if (ENGINE >= ENGINE_3)
 // NOTE: gNextFreeAffineIndex introduced in SA3, unused before.
@@ -45,9 +46,9 @@ u8 gNextFreeAffineIndex = 0;
 #endif
 BgAffineReg gBgAffineRegs[NUM_AFFINE_BACKGROUNDS] ALIGNED(16) = {};
 void *gVramHeapStartAddr = NULL;
-u16 SA2_LABEL(gUnknown_03001944) ALIGNED(4) = 0;
+u16 gSpriteTransformRotation ALIGNED(4) = 0;
 u8 gNumVBlankIntrs ALIGNED(4) = 0;
-s16 SA2_LABEL(gUnknown_0300194C) ALIGNED(4) = 0;
+s16 gSpriteTransformX ALIGNED(4) = 0;
 
 #if (ENGINE >= ENGINE_3)
 u8 gUnknown_03002C60 ALIGNED(4) = 0;
@@ -55,9 +56,9 @@ u8 gUnknown_03002C60 ALIGNED(4) = 0;
 u32 gMultiSioStatusFlags = 0;
 bool8 gMultiSioEnabled = FALSE;
 
-struct Task *gTaskPtrs[] ALIGNED(16) = {};
+Task *gTaskPtrs[] ALIGNED(16) = {};
 int_vcount gBgOffsetsBuffer[2][DISPLAY_HEIGHT][4] = {}; /* TODO: Find out how this is different from gBgOffsetsHBlankPrimary */
-u16 gObjPalette[] = {};
+ColorRaw gObjPalette[] = {};
 Tilemap **gTilemapsRef = NULL;
 u32 gFrameCount = 0;
 winreg_t gWinRegs[6] ALIGNED(16) = {};
@@ -66,18 +67,18 @@ u8 gBgSprites_Unknown2[4][4] = {};
 u16 gInput = 0;
 #if (ENGINE >= ENGINE_3)
 s32 gUnknown_030035A4 = 0;
-struct Task *gNextTaskToCheckForDestruction = NULL;
+Task *gNextTaskToCheckForDestruction = NULL;
 #endif // (ENGINE >= ENGINE_3)
 u8 gRepeatedKeysTestCounter[] ALIGNED(16) = {};
 void *gBgOffsetsHBlankSecondary = NULL;
 u16 gBgCntRegs[] = {};
 u16 gRepeatedKeys ALIGNED(4) = 0;
-struct Task *gNextTask = NULL;
+Task *gNextTask = NULL;
 #if ((ENGINE == ENGINE_1) || (ENGINE == ENGINE_2))
 // Only here in SA3
-// struct GraphicsData *gVramGraphicsCopyQueue[];
+// GraphicsData *gVramGraphicsCopyQueue[];
 #else
-struct GraphicsData gVramGraphicsCopyQueue[] = {};
+GraphicsData gVramGraphicsCopyQueue[] = {};
 #endif
 #if (ENGINE == ENGINE_2)
 void *gBgOffsetsSecondary = NULL;
@@ -90,36 +91,36 @@ s16 gMosaicReg = 0;
 #endif
 
 HBlankIntrFunc gHBlankCallbacks[4] ALIGNED(16) = {};
-struct Task *gCurTask = NULL;
+Task *gCurTask = NULL;
 u8 sLastCalledVblankFuncId = 0;
 u8 gKeysFirstRepeatIntervals[10] ALIGNED(16) = {};
 
 u16 gReleasedKeys ALIGNED(4) = 0;
 u8 gOamMallocCopiedOrder[] ALIGNED(16) = {};
 u32 gFlagsPreVBlank = 0;
-/* 0x03002794 */ const struct SpriteTables *gRefSpriteTables = NULL;
+/* 0x03002794 */ const SpriteTables *gRefSpriteTables = NULL;
 
 #if PORTABLE
 // TODO: Once SA3 works in PORTABLE, it can just use
 // the regular gVramGraphicsCopyQueue[].
-struct GraphicsData gVramGraphicsCopyQueueBuffer[] = {};
+GraphicsData gVramGraphicsCopyQueueBuffer[] = {};
 #endif // PORTABLE
 #if ((ENGINE == ENGINE_1) || (ENGINE == ENGINE_2))
-struct GraphicsData *gVramGraphicsCopyQueue[] ALIGNED(16) = {};
+GraphicsData *gVramGraphicsCopyQueue[] ALIGNED(16) = {};
 #else
 // NOT here in SA3
-// struct GraphicsData gVramGraphicsCopyQueue[32] = {};
+// GraphicsData gVramGraphicsCopyQueue[32] = {};
 #endif
 
 #if (ENGINE == ENGINE_3)
 VoidFn gUnknown_03003C08 = NULL;
 #endif
-s16 SA2_LABEL(gUnknown_03002820) = 0;
+s16 gSpriteTransformY = 0;
 s16 gBgScrollRegs[][2] ALIGNED(16) = {};
 u16 gDispCnt = 0;
 u8 gKeysContinuedRepeatIntervals[10] ALIGNED(16) = {};
 union MultiSioData gMultiSioSend ALIGNED(8) = {};
-u8 SA2_LABEL(gUnknown_03002874) = 0;
+u8 gVCountSetting = 0;
 
 void *gHBlankCopyTarget ALIGNED(4) = NULL;
 
@@ -129,7 +130,7 @@ u16 gRgbMap[3][2 * 16] __attribute__((aligned(4))) = {};
 #endif // (ENGINE == ENGINE_3)
 
 u8 gBackgroundsCopyQueueIndex = 0;
-u16 gBgPalette[] ALIGNED(16) = {};
+ColorRaw gBgPalette[] ALIGNED(16) = {};
 
 u8 gHBlankCopySize ALIGNED(4) = 0;
 
@@ -161,8 +162,8 @@ u8 gBgSprites_Unknown1[] = {};
 OamData gOamBuffer[] ALIGNED(16) = {};
 u16 gVramHeapState[] = {};
 u8 gBgSpritesCount ALIGNED(4) = 0;
-u16 SA2_LABEL(gUnknown_03005394) ALIGNED(4) = 0;
-u16 SA2_LABEL(gUnknown_03005398) ALIGNED(4) = 0;
+u16 gSpriteTransformScaleY ALIGNED(4) = 0;
+u16 gSpriteTransformScaleUnknown ALIGNED(4) = 0;
 IntrFunc gVBlankIntrs[] ALIGNED(16) = {};
 const u8 *gInputPlaybackData = NULL;
 bool8 gExecSoundMain ALIGNED(4) = FALSE;
@@ -388,14 +389,14 @@ void EngineInit(void)
 #if (ENGINE >= ENGINE_3)
     gNextFreeAffineIndex = 0;
 #endif
-    SA2_LABEL(gUnknown_03001944) = 0;
-    SA2_LABEL(gUnknown_030017F0) = 0x100;
-    SA2_LABEL(gUnknown_03005394) = 0x100;
+    gSpriteTransformRotation = 0;
+    gSpriteTransformScaleX = 0x100;
+    gSpriteTransformScaleY = 0x100;
     SA2_LABEL(gUnknown_03002A8C) = 0;
     SA2_LABEL(gUnknown_03004D58) = 0;
-    SA2_LABEL(gUnknown_0300194C) = 0;
-    SA2_LABEL(gUnknown_03002820) = 0;
-    SA2_LABEL(gUnknown_03005398) = 0x100;
+    gSpriteTransformX = 0;
+    gSpriteTransformY = 0;
+    gSpriteTransformScaleUnknown = 0x100;
 
     gWinRegs[WINREG_WIN0H] = 0;
     gWinRegs[WINREG_WIN1H] = 0;
@@ -609,8 +610,10 @@ void EngineMainLoop(void)
         }
 #endif
 
-        // Wait for vblank to finish
-        while (REG_DISPSTAT & DISPSTAT_VBLANK)
+        // NOTE: If other platforms do V-Sync asynchronously, we may need to incorporate this wait.
+        //
+        // Wait for vblank to finish, we only compute the frame once the new frame started.
+        while (PLATFORM_GBA && (REG_DISPSTAT & DISPSTAT_VBLANK))
             ;
     };
 }
@@ -622,12 +625,12 @@ void UpdateScreenDma(void)
     DmaCopy32(3, gBgCntRegs, (void *)REG_ADDR_BG0CNT, sizeof(gBgCntRegs));
 
     if (gFlags & FLAGS_UPDATE_BACKGROUND_PALETTES) {
-        DmaCopy32(3, gBgPalette, (void *)BG_PLTT, BG_PLTT_SIZE);
+        DmaCopy32(3, gBgPalette, (void *)BG_PLTT, sizeof(gBgPalette));
         gFlags ^= FLAGS_UPDATE_BACKGROUND_PALETTES;
     }
 
     if (gFlags & FLAGS_UPDATE_SPRITE_PALETTES) {
-        DmaCopy32(3, gObjPalette, (void *)OBJ_PLTT, OBJ_PLTT_SIZE);
+        DmaCopy32(3, gObjPalette, (void *)OBJ_PLTT, sizeof(gObjPalette));
         gFlags ^= FLAGS_UPDATE_SPRITE_PALETTES;
     }
 
@@ -761,12 +764,12 @@ void UpdateScreenCpuSet(void)
     CpuCopy32(gBgCntRegs, (void *)REG_ADDR_BG0CNT, sizeof(gBgCntRegs));
 
     if (gFlags & FLAGS_UPDATE_BACKGROUND_PALETTES) {
-        CpuFastCopy(gBgPalette, (void *)BG_PLTT, BG_PLTT_SIZE);
+        CpuFastCopy(gBgPalette, (void *)BG_PLTT, sizeof(gBgPalette));
         gFlags ^= FLAGS_UPDATE_BACKGROUND_PALETTES;
     }
 
     if (gFlags & FLAGS_UPDATE_SPRITE_PALETTES) {
-        CpuFastCopy(gObjPalette, (void *)OBJ_PLTT, OBJ_PLTT_SIZE);
+        CpuFastCopy(gObjPalette, (void *)OBJ_PLTT, sizeof(gObjPalette));
         gFlags ^= FLAGS_UPDATE_SPRITE_PALETTES;
     }
 
@@ -854,7 +857,7 @@ void VBlankIntr(void)
     if (gFlagsPreVBlank & FLAGS_40) {
         REG_DISPSTAT |= DISPSTAT_VCOUNT_INTR;
         REG_DISPSTAT &= 0xff;
-        REG_DISPSTAT |= SA2_LABEL(gUnknown_03002874) << 8;
+        REG_DISPSTAT |= gVCountSetting << 8; // V-Count Setting
         REG_DISPSTAT &= ~DISPSTAT_VCOUNT;
         REG_DISPSTAT |= DISPSTAT_VCOUNT_INTR;
         REG_IE |= INTR_FLAG_VCOUNT;
@@ -907,7 +910,7 @@ bool32 ProcessVramGraphicsCopyQueue(void)
 #ifndef NON_MATCHING
     struct GraphicsData_Hack *graphics;
 #else
-    struct GraphicsData *graphics;
+    GraphicsData *graphics;
 #endif
 
     while (gVramGraphicsCopyCursor != gVramGraphicsCopyQueueIndex) {

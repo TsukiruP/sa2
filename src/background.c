@@ -2,10 +2,11 @@
 #include "core.h"
 #include "flags.h"
 #include "sprite.h"
+#include "background.h"
 #include "trig.h"
-#include "lib/m4a/m4a.h"
 
-#include "animation_commands.h"
+#include "lib/m4a/m4a.h"
+#include "platform/platform.h"
 
 static AnimCmdResult animCmd_GetTiles_BG(void *, Sprite *);
 static AnimCmdResult animCmd_GetPalette_BG(void *, Sprite *);
@@ -33,7 +34,7 @@ const AnimationCommandFunc animCmdTable_BG[12] = {
 void DrawBackground(Background *background)
 {
     struct MapHeader *mapHeader = (struct MapHeader *)gTilemapsRef[background->tilemapId];
-    const u16 *pal;
+    const ColorRaw *pal;
     u32 palSize;
     u16 gfxSize;
 
@@ -54,7 +55,7 @@ void DrawBackground(Background *background)
     background->paletteOffset = mapHeader->tileset.palOffset;
 
     if (!(background->flags & BACKGROUND_DISABLE_PALETTE_UPDATE)) {
-        DmaCopy16(3, pal, gBgPalette + background->paletteOffset, palSize * sizeof(*pal));
+        DmaCopy16(3, pal, &GET_PALETTE_COLOR_BG(0, background->paletteOffset), palSize * sizeof(*pal));
         gFlags |= FLAGS_UPDATE_BACKGROUND_PALETTES;
         background->flags ^= BACKGROUND_DISABLE_PALETTE_UPDATE;
     }
@@ -70,9 +71,15 @@ void DrawBackground(Background *background)
     ADD_TO_BACKGROUNDS_QUEUE(background);
 }
 
+// TODO: The assembly is not the same between SA1 and SA2!
 // (85.37%) https://decomp.me/scratch/617Jb
 // (87.46%) https://decomp.me/scratch/1CFim
-NONMATCH("asm/non_matching/engine/sub_8002B20.inc", bool32 sub_8002B20(void))
+// TODO: ProcessBackgroundsCopyQueue might be a good name for this function?
+#if (GAME == GAME_SA1)
+NONMATCH("asm/non_matching/engine/sa2__sub_8002B20_sa1.inc", bool32 SA2_LABEL(sub_8002B20)(void))
+#else
+NONMATCH("asm/non_matching/engine/sa2__sub_8002B20.inc", bool32 SA2_LABEL(sub_8002B20)(void))
+#endif
 {
     u16 sp00;
     s32 sp04 = 0;
@@ -90,6 +97,7 @@ NONMATCH("asm/non_matching/engine/sub_8002B20.inc", bool32 sub_8002B20(void))
 
 #if (RENDERER == RENDERER_OPENGL)
     // TEMP
+    Platform_ProcessBackgroundsCopyQueue();
     return TRUE;
 #endif
 
@@ -740,7 +748,7 @@ s32 UpdateSpriteAnimation_BG(Sprite *s)
         {
             s32 frame = ((ACmd_ShowFrame *)cmd)->index;
             if (frame != -1) {
-                const struct SpriteTables *sprTables = gRefSpriteTables;
+                const SpriteTables *sprTables = gRefSpriteTables;
 
                 s->dimensions = &sprTables->dimensions[s->graphics.anim][frame];
             } else {
@@ -795,15 +803,15 @@ static AnimCmdResult animCmd_AddHitbox_BG(void *cursor, Sprite *s)
 
     DmaCopy32(3, &cmd->hitbox, &s->hitboxes[index].index, sizeof(Hitbox));
 
-    if ((cmd->hitbox.left == 0) && (cmd->hitbox.top == 0) && (cmd->hitbox.right == 0) && (cmd->hitbox.bottom == 0)) {
+    if ((cmd->hitbox.b.left == 0) && (cmd->hitbox.b.top == 0) && (cmd->hitbox.b.right == 0) && (cmd->hitbox.b.bottom == 0)) {
         s->hitboxes[index].index = -1;
     } else {
         if (s->frameFlags & SPRITE_FLAG_MASK_Y_FLIP) {
-            XOR_SWAP(s->hitboxes[index].top, s->hitboxes[index].bottom);
+            XOR_SWAP(s->hitboxes[index].b.top, s->hitboxes[index].b.bottom);
         }
 
         if (s->frameFlags & SPRITE_FLAG_MASK_X_FLIP) {
-            XOR_SWAP(s->hitboxes[index].left, s->hitboxes[index].right);
+            XOR_SWAP(s->hitboxes[index].b.left, s->hitboxes[index].b.right);
         }
     }
 
@@ -854,7 +862,7 @@ void DisplaySprite_BG(Sprite *s)
 
 // Some VBlank function
 // (21.30%) https://decomp.me/scratch/UfJX7
-NONMATCH("asm/non_matching/engine/sub_80039E4.inc", bool32 sub_80039E4(void))
+NONMATCH("asm/non_matching/engine/sa2__sub_80039E4.inc", bool32 SA2_LABEL(sub_80039E4)(void))
 {
     // tilesize (could be 32 and get optimized out?)
     s32 sp28 = 5;
@@ -1017,7 +1025,7 @@ NONMATCH("asm/non_matching/engine/sub_80039E4.inc", bool32 sub_80039E4(void))
 }
 END_NONMATCH
 
-void sub_8003EE4(u16 p0, s16 p1, s16 p2, s16 p3, s16 p4, s16 p5, s16 p6, BgAffineReg *affine)
+void SA2_LABEL(sub_8003EE4)(u16 p0, s16 p1, s16 p2, s16 p3, s16 p4, s16 p5, s16 p6, BgAffineReg *affine)
 {
     affine->pa = (COS_24_8(p0) * (s16)Div(0x10000, p1)) >> 8;
     affine->pb = (SIN_24_8(p0) * (s16)Div(0x10000, p1)) >> 8;
@@ -1047,7 +1055,7 @@ void sub_8003EE4(u16 p0, s16 p1, s16 p2, s16 p3, s16 p4, s16 p5, s16 p6, BgAffin
 // (58.36%) https://decomp.me/scratch/ClyxP
 // (48.23%) https://decomp.me/scratch/bDTEe
 #if 01
-NONMATCH("asm/non_matching/engine/sub_8004010.inc", u32 sub_8004010(void))
+NONMATCH("asm/non_matching/engine/sa2__sub_8004010.inc", u32 SA2_LABEL(sub_8004010)(void))
 {
     u8 bgIndex = 0;
     u16 sp00[2];
@@ -1289,7 +1297,12 @@ static AnimCmdResult animCmd_GetPalette_BG(void *cursor, Sprite *s)
     if (!(s->frameFlags & SPRITE_FLAG_MASK_18)) {
         s32 paletteIndex = cmd->palId;
 
-        DmaCopy32(3, &gRefSpriteTables->palettes[paletteIndex * 16], &gBgPalette[s->palId * 16 + cmd->insertOffset], cmd->numColors * 2);
+        // NOTE:
+        // For some reason, this only matches with a size of:
+        // (cmd->numColors * 2), not (cmd->numColors * sizeof(u16))
+        // Same goes for sprite.c version called animCmd_GetPalette()...
+        DmaCopy32(3, &gRefSpriteTables->palettes[paletteIndex * 16], &GET_PALETTE_COLOR_BG(s->palId, cmd->insertOffset),
+                  cmd->numColors * 2);
 
         gFlags |= FLAGS_UPDATE_BACKGROUND_PALETTES;
     }

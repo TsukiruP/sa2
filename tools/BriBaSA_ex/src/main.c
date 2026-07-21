@@ -14,7 +14,7 @@
 #include <config.h> // from raylib, for MAX_FILEPATH_LENGTH
 #include <raylib.h>
 
-#include "../../../include/constants/interactables.h"
+#include "../../../include/constants/sa2/interactables.h"
 #include "../../../include/constants/zones.h"
 
 #include "global.h"

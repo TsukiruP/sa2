@@ -99,12 +99,21 @@
 #endif
 
 #if PLATFORM_GBA
-#define NUM_MUSIC_PLAYERS ((u16)gNumMusicPlayers)
-#define MAX_LINES         ((u32)gMaxLines)
+#define NUM_MUSIC_PLAYERS        ((u16)gNumMusicPlayers)
+#define NUM_MUSIC_PLAYERS_STATIC 4 // @HACK because of how gNumMusicPlayers was defined to match
+#define MAX_LINES                ((u32)gMaxLines)
 #else
-#define NUM_MUSIC_PLAYERS 4
-#define MAX_LINES         0
+#define NUM_MUSIC_PLAYERS        4
+#define NUM_MUSIC_PLAYERS_STATIC NUM_MUSIC_PLAYERS
+#define MAX_LINES                0
 #endif
+
+typedef s32 fixed8_24;
+#define float_to_fp8_24(value)        (fixed8_24)((value)*16777216.0f)
+#define u32_to_fp8_24(value)          ((value) << 24)
+#define fp8_24_to_u32(value)          ((value) >> 24)
+#define fp8_24_to_float(value)        (float)((value) / 16777216.0f)
+#define fp8_24_fractional_part(value) ((value)&0xFFFFFF)
 
 struct MP2KTrack;
 struct MP2KPlayerState;
@@ -185,7 +194,7 @@ struct MixerSource {
             u8 padding5;
 
             u32 ct;
-            float fw;
+            fixed8_24 fw;
 
             u32 freq;
         } sound;
@@ -243,7 +252,7 @@ struct SoundMixerState {
 #if PLATFORM_GBA
     s8 pcmBuffer[PCM_DMA_BUF_SIZE * 2];
 #else
-    float pcmBuffer[PCM_DMA_BUF_SIZE * 2];
+    fixed8_24 pcmBuffer[PCM_DMA_BUF_SIZE * 2];
 #endif
 };
 
@@ -374,7 +383,7 @@ extern u8 gMPlayMemAccArea[];
 extern void *gMPlayJumpTable[];
 extern struct MixerSource gCgbChans[];
 
-extern const struct MusicPlayer gMPlayTable[];
+extern const struct MusicPlayer gMPlayTable[NUM_MUSIC_PLAYERS_STATIC];
 extern const struct Song gSongTable[];
 extern const XcmdFunc gXcmdTable[];
 

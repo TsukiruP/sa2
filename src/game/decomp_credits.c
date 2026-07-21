@@ -5,14 +5,14 @@
 #include "core.h"
 #include "lib/m4a/m4a.h"
 #include "game/game.h"
-#include "game/save.h"
-#include "game/options_screen.h"
-#include "game/title_screen.h"
-#include "game/stage/debug_text_printer.h"
+#include "game/sa2/save.h"
+#include "game/sa2/options_screen.h"
+#include "game/sa2/title_screen.h"
+#include "game/sa2/stage/debug_text_printer.h"
 
-#include "constants/animations.h"
-#include "constants/characters.h"
-#include "constants/songs.h"
+#include "constants/sa2/animations.h"
+#include "constants/sa2/characters.h"
+#include "constants/sa2/songs.h"
 
 #if ENABLE_DECOMP_CREDITS
 typedef struct {
@@ -36,7 +36,7 @@ typedef struct {
 } DCCredits;
 
 void Task_DecompCreditsFirst();
-void TaskDestructor_DecompCredits(struct Task *t);
+void TaskDestructor_DecompCredits(Task *t);
 
 void customHBlank(void);
 
@@ -48,7 +48,7 @@ void Task_OllieLogoMoves(void);
 
 //    1
 // -------
-// x^4 + 0.5
+// x^4 + 1
 s32 logoOllieMove(s32 frameNum)
 {
     s32 qTime = (Q_DIV(Q(frameNum), Q(GBA_FRAMES_PER_SECOND)));
@@ -60,7 +60,7 @@ s32 logoOllieMove(s32 frameNum)
 
 void CreateDecompCreditsScreen(bool32 hasProfile)
 {
-    struct Task *t;
+    Task *t;
     DCCredits *cred;
     Sprite *s;
 
@@ -77,7 +77,7 @@ void CreateDecompCreditsScreen(bool32 hasProfile)
 
     s = &cred->sprSonic;
     s->x = -508;
-    s->y = (DISPLAY_HEIGHT / 2) - 16;
+    s->y = DISPLAY_CENTER_Y - 16;
     SPRITE_INIT_FLAGS(s, 64, SA2_ANIM_CHAR(SA2_CHAR_ANIM_WALK, CHARACTER_SONIC), 4, 18, 2, SPRITE_FLAG_MASK_X_FLIP);
     s->animSpeed = SPRITE_ANIM_SPEED(4);
     cred->qSonicScreenX = Q(s->x);
@@ -91,8 +91,8 @@ void CreateDecompCreditsScreen(bool32 hasProfile)
     cred->qTailsScreenX = Q(s->x);
 
     s = &cred->sprLogoOllie;
-    s->x = (DISPLAY_WIDTH / 2) + 24;
-    s->y = (DISPLAY_HEIGHT / 2) - (LOGO_WIDTH / 2);
+    s->x = DISPLAY_CENTER_X + 24;
+    s->y = DISPLAY_CENTER_Y - (LOGO_WIDTH / 2);
     SPRITE_INIT_FLAGS(s, 64, 1133, 1, 18, 2, SPRITE_FLAG_MASK_X_FLIP);
     s->palId = 2;
     cred->qLogoOllieScreenX = Q(s->x);
@@ -164,7 +164,7 @@ void Task_DecompCreditsFirst()
     UpdateSprites(cred);
 
     // Check Tails' position
-    if (cred->sprLogoJace.x <= ((DISPLAY_WIDTH / 2) + 24)) {
+    if (cred->sprLogoJace.x <= (DISPLAY_CENTER_X + 24)) {
         cred->sprTails.graphics.anim = SA2_ANIM_CHAR(33, CHARACTER_TAILS);
         cred->sprTails.variant = 0;
         cred->qSpeedTails = 0;
@@ -199,7 +199,7 @@ void Task_DecompCreditsFirst()
         }
     }
 
-    if ((cred->qSpeedSonic <= 0) && cred->sprSonic.x < (DISPLAY_WIDTH / 2) + 16) {
+    if ((cred->qSpeedSonic <= 0) && cred->sprSonic.x < DISPLAY_CENTER_X + 16) {
         cred->qSpeedSonic = Q(0);
 
         cred->sprSonic.graphics.anim = SA2_ANIM_CHAR(SA2_CHAR_ANIM_34, CHARACTER_SONIC);
@@ -224,7 +224,7 @@ void Task_SonicArrived(void)
     UpdateSprites(cred);
 
     // Check Tails' position
-    if (cred->sprLogoJace.x <= ((DISPLAY_WIDTH / 2) + 24)) {
+    if (cred->sprLogoJace.x <= (DISPLAY_CENTER_X + 24)) {
         cred->sprTails.graphics.anim = SA2_ANIM_CHAR(33, CHARACTER_TAILS);
         cred->sprTails.variant = 0;
         cred->qSpeedTails = 0;
@@ -245,7 +245,7 @@ void Task_SonicArrived(void)
     cred->sonicArrivedT0++;
 }
 
-void TaskDestructor_DecompCredits(struct Task *t)
+void TaskDestructor_DecompCredits(Task *t)
 {
     DCCredits *cred = TASK_DATA(t);
 
@@ -289,16 +289,23 @@ void TaskDestructor_DecompCredits(struct Task *t)
     CreateTitleScreen();
 }
 
-// Colors the screen behind the "Press START ..." text white
+// Changes background colors depending on the current horizontal line
 void customHBlank(void)
 {
-    u16 vcount = REG_VCOUNT;
+    // NOTE:
+    // We have to use direct accesses to palette memory here instead of
+    // SET_PALETTE_COLOR_BG() and GET_PALETTE_COLOR_OBJ() because those are only taken into account
+    // at the end of the frame, while this HBlank-code need to update colors while the frame gets drawn;
+    int_vcount vcount = REG_VCOUNT;
     if ((vcount >= DISPLAY_HEIGHT - 16 - 1) && (vcount < DISPLAY_HEIGHT - 1)) {
+        // "PRESS START to continue"
         ((u16 *)BG_PLTT)[0] = RGB_WHITE;
-    } else if ((vcount >= (DISPLAY_HEIGHT / 2) - 1) && (vcount < DISPLAY_HEIGHT - 1)) {
-        ((u16 *)BG_PLTT)[0] = ((u16 *)OBJ_PLTT)[3 * 16];
+    } else if ((vcount >= DISPLAY_CENTER_Y - 1) && (vcount < DISPLAY_HEIGHT - 1)) {
+        // Logo background (JaceCear)
+        ((u16 *)BG_PLTT)[0] = ((u16 *)OBJ_PLTT)[3 * PALETTE_LEN_4BPP];
     } else {
-        ((u16 *)BG_PLTT)[0] = ((u16 *)OBJ_PLTT)[2 * 16];
+        // Logo background (freshollie)
+        ((u16 *)BG_PLTT)[0] = ((u16 *)OBJ_PLTT)[2 * PALETTE_LEN_4BPP];
     }
 }
 #endif
