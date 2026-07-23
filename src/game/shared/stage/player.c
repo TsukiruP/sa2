@@ -1994,8 +1994,7 @@ void SA2_LABEL(sub_80223BC)(Player *p)
     if (result <= 0) {
         p->qWorldX -= Q(result);
         p->qSpeedAirX = 0;
-        // TODO: Find out which character(s) call this, to use the appropriate 'flags'
-        p->w.sf.flags |= 0x20;
+        p->w.kf.flags |= 0x20;
     }
 
     playerX2 = I(p->qWorldX) + (3 + p->spriteOffsetX);
@@ -2010,7 +2009,7 @@ void SA2_LABEL(sub_80223BC)(Player *p)
     if (result <= 0) {
         p->qWorldX += Q(result);
         p->qSpeedAirX = 0;
-        p->w.sf.flags |= 0x20;
+        p->w.kf.flags |= 0x20;
     }
 
     ptr = &fnOut;
@@ -2029,7 +2028,7 @@ void SA2_LABEL(sub_80223BC)(Player *p)
 
         p->rotation = rotation;
         p->qSpeedAirY = 0;
-        p->w.sf.flags &= ~0x2;
+        p->w.kf.flags &= ~MOVESTATE_IN_AIR;
     }
 }
 
@@ -2059,8 +2058,7 @@ void SA2_LABEL(sub_80224DC)(Player *p)
     if (result <= 0) {
         p->qWorldX -= Q(result);
         p->qSpeedAirX = 0;
-        // TODO: Find out which character(s) call this, to use the appropriate 'flags'
-        p->w.sf.flags |= 0x20;
+        p->w.kf.flags |= 0x20;
     }
 
     playerX2 = I(p->qWorldX) + (3 + p->spriteOffsetX);
@@ -2075,7 +2073,7 @@ void SA2_LABEL(sub_80224DC)(Player *p)
     if (result <= 0) {
         p->qWorldX += Q(result);
         p->qSpeedAirX = 0;
-        p->w.sf.flags |= 0x20;
+        p->w.kf.flags |= 0x20;
     }
 
     ptr = &fnOut;
@@ -2120,8 +2118,7 @@ void SA2_LABEL(sub_80225E8)(Player *p)
     if (result <= 0) {
         p->qWorldX -= Q(result);
         p->qSpeedAirX = 0;
-        // TODO: Find out which character(s) call this, to use the appropriate 'flags'
-        p->w.sf.flags |= 0x20;
+        p->w.kf.flags |= 0x20;
     }
 
     gravity = GRAVITY_IS_INVERTED;
@@ -2158,7 +2155,7 @@ void SA2_LABEL(sub_80225E8)(Player *p)
 
             p->rotation = rotation;
             p->qSpeedAirY = 0;
-            p->w.sf.flags &= ~0x2;
+            p->w.kf.flags &= ~MOVESTATE_IN_AIR;
         }
     }
 }
@@ -2188,8 +2185,7 @@ void SA2_LABEL(sub_8022710)(Player *p)
     if (result <= 0) {
         p->qWorldX += Q(result);
         p->qSpeedAirX = 0;
-        // TODO: Find out which character(s) call this, to use the appropriate 'flags'
-        p->w.sf.flags |= 0x20;
+        p->w.kf.flags |= 0x20;
     }
 
     gravity = GRAVITY_IS_INVERTED;
@@ -2226,7 +2222,7 @@ void SA2_LABEL(sub_8022710)(Player *p)
 
             p->rotation = rotation;
             p->qSpeedAirY = 0;
-            p->w.sf.flags &= ~0x2;
+            p->w.kf.flags &= ~MOVESTATE_IN_AIR;
         }
     }
 }
@@ -2238,7 +2234,7 @@ void SA2_LABEL(sub_8022838)(Player *p)
     u8 arcResult = 0;
 
     if (p->moveState & MOVESTATE_STOOD_ON_OBJ) {
-        p->w.sf.flags &= ~0x2;
+        p->w.kf.flags &= ~MOVESTATE_IN_AIR;
         p->SA2_LABEL(unk29) = 0;
         p->SA2_LABEL(unk28) = 0;
     } else {

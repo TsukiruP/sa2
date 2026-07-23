@@ -1435,7 +1435,7 @@ void Player_Knuckles_GlideHardLandingUpdateAnim(Player *p)
 
         PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14);
 
-        p->w.tf.flags |= 0x2;
+        p->w.kf.flags |= 0x2;
     }
 }
 
