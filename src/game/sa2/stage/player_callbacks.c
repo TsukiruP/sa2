@@ -1670,8 +1670,8 @@ void Player_Knuckles_Climb_80136E8(Player *p)
             }
         }
 
-        if (r2 != 0 && --p->w.tf.shift == 0) {
-            p->w.tf.shift = 3;
+        if (r2 != 0 && --p->w.kf.shift == 0) {
+            p->w.kf.shift = 3;
         }
 
         sub_801394C(p);
@@ -1883,7 +1883,7 @@ void Player_Knuckles_InitClimbPullUpEdge(Player *p)
 
     PLAYERFN_SET(Player_Knuckles_ClimbPullUpEdge);
 
-    p->w.tf.shift = 0;
+    p->w.kf.shift = 0;
 }
 
 void sub_8013CA0(Player *p)
