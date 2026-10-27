@@ -374,7 +374,7 @@ void Player_SonicForwardThrust(Player *p)
 
     Player_TransitionCancelFlyingAndBoost(p);
     p->moveState |= MOVESTATE_IN_AIR;
-    p->moveState &= ~(MOVESTATE_1000000 | MOVESTATE_20 | MOVESTATE_SPIN_ATTACK);
+    p->moveState &= ~(MOVESTATE_GRIND | MOVESTATE_20 | MOVESTATE_SPIN_ATTACK);
 
     PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14);
 
@@ -407,7 +407,7 @@ void Player_Sonic_InitHomingAttack(Player *p)
 
     Player_TransitionCancelFlyingAndBoost(p);
     p->moveState |= (MOVESTATE_SOME_ATTACK | MOVESTATE_BOOST_EFFECT_ON | MOVESTATE_IN_AIR);
-    p->moveState &= ~(MOVESTATE_1000000 | MOVESTATE_20);
+    p->moveState &= ~(MOVESTATE_GRIND | MOVESTATE_20);
 
     PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 9);
 
@@ -435,7 +435,7 @@ void Player_InitHomingAttackRecoil(Player *p)
 {
     Player_TransitionCancelFlyingAndBoost(p);
     p->moveState |= (MOVESTATE_100 | MOVESTATE_IN_AIR);
-    p->moveState &= ~(MOVESTATE_SOME_ATTACK | MOVESTATE_1000000 | MOVESTATE_20);
+    p->moveState &= ~(MOVESTATE_SOME_ATTACK | MOVESTATE_GRIND | MOVESTATE_20);
 
     PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14);
 

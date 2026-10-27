@@ -975,7 +975,7 @@ bool32 Coll_DamagePlayer(Player *p)
     }
 #endif
 
-    if (p->moveState & MOVESTATE_1000000) {
+    if (p->moveState & MOVESTATE_GRIND) {
 #if (GAME == GAME_SA1)
         p->layer ^= PLAYER_LAYER__MASK;
         if (SA2_LABEL(sub_8022F58)(p->rotation + Q(0.5), p) < 4) {
@@ -986,7 +986,7 @@ bool32 Coll_DamagePlayer(Player *p)
 #if (GAME == GAME_SA2)
             p->layer = PLAYER_LAYER__BACK;
 #endif
-            p->moveState &= ~MOVESTATE_1000000;
+            p->moveState &= ~MOVESTATE_GRIND;
             p->itemEffect &= ~PLAYER_ITEM_EFFECT__TELEPORT;
 
             p->spriteInfoBody->s.frameFlags &= ~SPRITE_FLAG_MASK_PRIORITY;
@@ -995,7 +995,7 @@ bool32 Coll_DamagePlayer(Player *p)
     }
 
 #if (GAME == GAME_SA2)
-    if (!(p->moveState & MOVESTATE_1000000)) {
+    if (!(p->moveState & MOVESTATE_GRIND)) {
         p->transition = PLTRANS_HURT;
     }
 #endif

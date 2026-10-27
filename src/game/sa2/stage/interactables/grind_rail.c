@@ -21,9 +21,9 @@ typedef struct {
     /* 0x09 */ u8 kind;
 } Sprite_GrindRail;
 
-#define RAIL_KIND_1  0x1
-#define RAIL_KIND_2  0x2
-#define RAIL_KIND_80 0x80
+#define RAIL_KIND_LEFT 0x1
+#define RAIL_KIND_AIR  0x2
+#define RAIL_KIND_USED 0x80
 
 #define INITIALIZE_RAIL(type)     CreateEntity_GrindRail(me, spriteRegionX, spriteRegionY, spriteY, type)
 #define INITIALIZE_RAIL_AIR(type) CreateEntity_GrindRail_Air(me, spriteRegionX, spriteRegionY, spriteY, type)
@@ -79,44 +79,44 @@ static void Task_GrindRail(void)
                 if (r7 <= y)
                     r6 = TRUE;
             }
-            if ((p->qSpeedAirY >= 0) && r6 && !(kind & RAIL_KIND_80)) {
-                if ((p->moveState & MOVESTATE_1000000)) {
-                    if ((!(kind & RAIL_KIND_1) && (p->moveState & MOVESTATE_FACING_LEFT)
+            if ((p->qSpeedAirY >= 0) && r6 && !(kind & RAIL_KIND_USED)) {
+                if ((p->moveState & MOVESTATE_GRIND)) {
+                    if ((!(kind & RAIL_KIND_LEFT) && (p->moveState & MOVESTATE_FACING_LEFT)
                          && (I(p->qWorldX) < x + (me->d.sData[0] * TILE_WIDTH) + ((me->d.uData[2] * (TILE_WIDTH / 2)))
-                             || ((p->heldInput & gPlayerControls.jump) && (kind & RAIL_KIND_2))))) {
-                        if ((kind & RAIL_KIND_2)) {
+                             || ((p->heldInput & gPlayerControls.jump) && (kind & RAIL_KIND_AIR))))) {
+                        if ((kind & RAIL_KIND_AIR)) {
                             p->transition = PLTRANS_GRIND_RAIL_END_AIR;
 
                         } else {
                             p->transition = PLTRANS_GRIND_RAIL_END_GROUND;
                         }
-                        *(u8 *)(TASK_DATA(gCurTask) + offsetof(Sprite_GrindRail, kind)) |= RAIL_KIND_80;
-                    } else if ((kind & RAIL_KIND_1) && !(p->moveState & MOVESTATE_FACING_LEFT)
+                        *(u8 *)(TASK_DATA(gCurTask) + offsetof(Sprite_GrindRail, kind)) |= RAIL_KIND_USED;
+                    } else if ((kind & RAIL_KIND_LEFT) && !(p->moveState & MOVESTATE_FACING_LEFT)
                                && (I(p->qWorldX) > x + (me->d.sData[0] * TILE_WIDTH) + ((me->d.uData[2] * (TILE_WIDTH / 2)))
-                                   || ((p->heldInput & gPlayerControls.jump) && (kind & RAIL_KIND_2)))) {
-                        if ((kind & RAIL_KIND_2)) {
+                                   || ((p->heldInput & gPlayerControls.jump) && (kind & RAIL_KIND_AIR)))) {
+                        if ((kind & RAIL_KIND_AIR)) {
                             p->transition = PLTRANS_GRIND_RAIL_END_AIR;
                         } else {
                             p->transition = PLTRANS_GRIND_RAIL_END_GROUND;
                         }
-                        *(u8 *)(TASK_DATA(gCurTask) + offsetof(Sprite_GrindRail, kind)) |= RAIL_KIND_80;
+                        *(u8 *)(TASK_DATA(gCurTask) + offsetof(Sprite_GrindRail, kind)) |= RAIL_KIND_USED;
                     }
-                } else if (((kind & RAIL_KIND_1)
+                } else if (((kind & RAIL_KIND_LEFT)
                             && Q_24_8_TO_INT(p->qWorldX) < (x + (me->d.sData[0] * TILE_WIDTH)) + ((me->d.uData[2] * (TILE_WIDTH / 2))))
-                           || (!(kind & RAIL_KIND_1)
+                           || (!(kind & RAIL_KIND_LEFT)
                                && Q_24_8_TO_INT(p->qWorldX)
                                    > (x + (me->d.sData[0] * TILE_WIDTH)) + ((me->d.uData[2] * (TILE_WIDTH / 2))))) {
                     p->transition = PLTRANS_GRINDING;
                     p->unk6E = 0;
 
-                    if (kind & RAIL_KIND_1)
+                    if (kind & RAIL_KIND_LEFT)
                         p->unk6E = 1;
                 }
             }
-            // BUG: this should not be set if it was set to RAIL_KIND_80 above
-            *(u8 *)(TASK_DATA(gCurTask) + offsetof(Sprite_GrindRail, kind)) &= ~RAIL_KIND_80;
+            // BUG: this should not be set if it was set to RAIL_KIND_USED above
+            *(u8 *)(TASK_DATA(gCurTask) + offsetof(Sprite_GrindRail, kind)) &= ~RAIL_KIND_USED;
         } else {
-            *(u8 *)(TASK_DATA(gCurTask) + offsetof(Sprite_GrindRail, kind)) &= ~RAIL_KIND_80;
+            *(u8 *)(TASK_DATA(gCurTask) + offsetof(Sprite_GrindRail, kind)) &= ~RAIL_KIND_USED;
         }
     }
 
@@ -159,19 +159,19 @@ static void Task_GrindRail_Air(void)
             && (y + (me->d.sData[1] * TILE_WIDTH) <= I(p->qWorldY)
                 && y + (me->d.sData[1] * TILE_WIDTH) + (me->d.uData[3] * TILE_WIDTH) >= I(p->qWorldY))) {
 
-            if ((p->moveState & MOVESTATE_1000000)) {
-                if (((kind & RAIL_KIND_1) && (p->moveState & MOVESTATE_FACING_LEFT)
+            if ((p->moveState & MOVESTATE_GRIND)) {
+                if (((kind & RAIL_KIND_LEFT) && (p->moveState & MOVESTATE_FACING_LEFT)
                      && (I(p->qWorldX) < x + (me->d.sData[0] * TILE_WIDTH) + ((me->d.uData[2] * TILE_WIDTH) >> 1)
-                         || ((p->heldInput & gPlayerControls.jump) && (kind & RAIL_KIND_2))))) {
-                    if ((kind & RAIL_KIND_2)) {
+                         || ((p->heldInput & gPlayerControls.jump) && (kind & RAIL_KIND_AIR))))) {
+                    if ((kind & RAIL_KIND_AIR)) {
                         p->transition = PLTRANS_GRIND_RAIL_END_AIR;
 
                     } else
                         p->transition = PLTRANS_GRIND_RAIL_END_GROUND;
-                } else if (!(kind & RAIL_KIND_1) && !(p->moveState & MOVESTATE_FACING_LEFT)
+                } else if (!(kind & RAIL_KIND_LEFT) && !(p->moveState & MOVESTATE_FACING_LEFT)
                            && (I(p->qWorldX) > x + (me->d.sData[0] * TILE_WIDTH) + ((me->d.uData[2] * TILE_WIDTH) >> 1)
-                               || ((p->heldInput & gPlayerControls.jump) && (kind & RAIL_KIND_2)))) {
-                    if ((kind & RAIL_KIND_2)) {
+                               || ((p->heldInput & gPlayerControls.jump) && (kind & RAIL_KIND_AIR)))) {
+                    if ((kind & RAIL_KIND_AIR)) {
                         p->transition = PLTRANS_GRIND_RAIL_END_AIR;
                     } else
                         p->transition = PLTRANS_GRIND_RAIL_END_GROUND;

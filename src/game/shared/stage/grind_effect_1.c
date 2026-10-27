@@ -53,7 +53,7 @@ void Task_GrindEffect(void)
 {
     Player *p = &gPlayer;
 
-    if (p->spriteTask == NULL || !(p->moveState & MOVESTATE_1000000)) {
+    if (p->spriteTask == NULL || !(p->moveState & MOVESTATE_GRIND)) {
         TaskDestroy(gCurTask);
         return;
 #if (GAME == GAME_SA1)

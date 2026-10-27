@@ -47,7 +47,7 @@ static void Task_MapEntity_Toggle_PlayerLayer(void)
             gPlayer.layer |= 1;
         }
 
-        gPlayer.moveState &= ~MOVESTATE_1000000;
+        gPlayer.moveState &= ~MOVESTATE_GRIND;
     }
 
     screenX -= gCamera.x;

@@ -93,7 +93,7 @@ bool32 Player_Amy_8049370(Player *p)
     p->qSpeedAirY += Q_MUL(qSpeed, SIN_24_8(rot * 4));
 
     p->moveState |= MOVESTATE_IN_AIR;
-    p->moveState &= ~(MOVESTATE_1000000 | MOVESTATE_20);
+    p->moveState &= ~(MOVESTATE_GRIND | MOVESTATE_20);
     p->moveState |= MOVESTATE_100;
     p->moveState &= ~MOVESTATE_ICE_SLIDE;
 
@@ -320,7 +320,7 @@ void Player_Amy_80497AC(Player *p)
 {
     switch (p->moveState & MOVESTATE_IN_AIR) {
         case 0: {
-            if (p->moveState & MOVESTATE_1000000) {
+            if (p->moveState & MOVESTATE_GRIND) {
                 sub_80472B8(p);
             } else {
                 Player_Amy_80494E8(p);

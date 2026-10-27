@@ -66,11 +66,11 @@ NONMATCH("asm/non_matching/game/sa1/stage/interactables/grind_rail__Task_GrindRa
             && (worldX + me->d.uData[2] * TILE_WIDTH >= I(gPlayer.qWorldX)) //
             && (worldY <= I(gPlayer.qWorldY)) //
             && (worldY + me->d.uData[3] * TILE_WIDTH >= I(gPlayer.qWorldY)) //
-            && !(gPlayer.moveState & MOVESTATE_1000000) && (gPlayer.qSpeedAirY >= Q(0)) && (gPlayer.qSpeedAirX > Q(0))) //
+            && !(gPlayer.moveState & MOVESTATE_GRIND) && (gPlayer.qSpeedAirY >= Q(0)) && (gPlayer.qSpeedAirX > Q(0))) //
         {
             gPlayer.qSpeedAirX = MAX(Q(0.5), gPlayer.qSpeedAirX);
 
-            gPlayer.moveState |= MOVESTATE_1000000;
+            gPlayer.moveState |= MOVESTATE_GRIND;
             gPlayer.layer ^= 1;
             gPlayerBodyPSI.s.frameFlags &= ~SPRITE_FLAG_MASK_PRIORITY;
             gPlayerBodyPSI.s.frameFlags |= SPRITE_FLAG(PRIORITY, 1);
@@ -128,7 +128,7 @@ void Task_GrindRailEnd(void)
             && (worldX + me->d.uData[2] * TILE_WIDTH >= I(gPlayer.qWorldX)) //
             && (worldY <= I(gPlayer.qWorldY)) //
             && (worldY + me->d.uData[3] * TILE_WIDTH >= I(gPlayer.qWorldY)) //
-            && (gPlayer.moveState & MOVESTATE_1000000)) //
+            && (gPlayer.moveState & MOVESTATE_GRIND)) //
         {
             if (I(gPlayer.qWorldX) > worldX + ((me->d.uData[2] * TILE_WIDTH) >> 1)) {
                 /* Jump off of the rail */
@@ -145,7 +145,7 @@ void Task_GrindRailEnd(void)
                 Player_TransitionCancelFlyingAndBoost(&gPlayer);
                 gPlayer.charState = CHARSTATE_17;
                 gPlayer.moveState |= MOVESTATE_IN_AIR;
-                gPlayer.moveState &= ~MOVESTATE_1000000;
+                gPlayer.moveState &= ~MOVESTATE_GRIND;
                 gPlayer.layer ^= 1;
                 gPlayer.itemEffect &= ~PLAYER_ITEM_EFFECT__80;
                 gPlayerBodyPSI.s.frameFlags &= ~SPRITE_FLAG_MASK_PRIORITY;
@@ -164,7 +164,7 @@ void Task_GrindRailEnd(void)
                 gPlayer.charState = CHARSTATE_RAIL_EXTRA_JUMP;
                 gPlayerBodyPSI.s.variant = 0;
                 gPlayer.moveState |= MOVESTATE_IN_AIR;
-                gPlayer.moveState &= ~MOVESTATE_1000000;
+                gPlayer.moveState &= ~MOVESTATE_GRIND;
                 gPlayer.layer ^= 1;
                 gPlayer.itemEffect &= ~PLAYER_ITEM_EFFECT__80;
                 gPlayerBodyPSI.s.frameFlags &= ~SPRITE_FLAG_MASK_PRIORITY;

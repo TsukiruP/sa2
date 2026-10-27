@@ -22,7 +22,7 @@ void Player_Sonic_80473AC(Player *p)
 {
     switch (p->moveState & MOVESTATE_JUMPING) {
         case 0: {
-            if (p->moveState & MOVESTATE_1000000) {
+            if (p->moveState & MOVESTATE_GRIND) {
                 sub_80472B8(p);
             } else {
                 // inline of sub_8047774 ?
