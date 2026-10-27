@@ -58,12 +58,12 @@ void Player_Knuckles_PunchLeft(Player *p);
 void Player_Knuckles_PunchRight(Player *p);
 void Player_Knuckles_SpiralAttack(Player *p);
 s32 sub_8013644(Player *p);
-void sub_801394C(Player *p);
+void Player_Knuckles_ClimbJump(Player *p);
 void Player_8013B6C(Player *p);
 void Player_Knuckles_Glide(Player *p);
-void Player_Knuckles_FallAfterGlide(Player *p);
-void Player_Knuckles_GlideSoftLanding(Player *p);
-void Player_Knuckles_GlideHardLanding(Player *p);
+void Player_Knuckles_GlideFall(Player *p);
+void Player_Knuckles_GlideLand(Player *p);
+void Player_Knuckles_GlideImpact(Player *p);
 void Player_Knuckles_Climb(Player *p);
 void Player_Knuckles_InitClimbPullUpEdge(Player *p);
 void sub_8013CA0(Player *p);
@@ -1232,7 +1232,7 @@ void Player_Knuckles_Glide_MainUpdate(Player *p)
 
             p->transition = PLTRANS_TOUCH_GROUND;
         } else {
-            PLAYERFN_SET(Player_Knuckles_GlideHardLanding);
+            PLAYERFN_SET(Player_Knuckles_GlideImpact);
             p->charState = CHARSTATE_KNUCKLES_GLIDE_IMPACT;
             m4aSongNumStart(SE_SONIC_SKID_ATTACK);
         }
@@ -1249,7 +1249,7 @@ void Player_Knuckles_Glide_MainUpdate(Player *p)
                     result = SA2_LABEL(sub_8029A28)(p, NULL, &sp08);
 
                     if (result != sp08) {
-                        PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+                        PLAYERFN_SET(Player_Knuckles_GlideFall);
                         p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
                         p->spriteOffsetX = 6;
                         p->spriteOffsetY = 14;
@@ -1270,7 +1270,7 @@ void Player_Knuckles_Glide_MainUpdate(Player *p)
                             playerBottomX -= p->spriteOffsetX;
 
                             if (SA2_LABEL(sub_801E4E4)(playerBottomY, playerBottomX, p->layer, -8, NULL, SA2_LABEL(sub_801EE64)) < 0) {
-                                PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+                                PLAYERFN_SET(Player_Knuckles_GlideFall);
                                 p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
                                 p->spriteOffsetX = 6;
                                 p->spriteOffsetY = 14;
@@ -1288,7 +1288,7 @@ void Player_Knuckles_Glide_MainUpdate(Player *p)
                             playerBottomX -= p->spriteOffsetX;
 
                             if (SA2_LABEL(sub_801E4E4)(playerBottomY, playerBottomX, p->layer, +8, NULL, SA2_LABEL(sub_801EE64)) < 0) {
-                                PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+                                PLAYERFN_SET(Player_Knuckles_GlideFall);
                                 p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
                                 p->spriteOffsetX = 6;
                                 p->spriteOffsetY = 14;
@@ -1304,7 +1304,7 @@ void Player_Knuckles_Glide_MainUpdate(Player *p)
 
                     result = SA2_LABEL(sub_8029A74)(p, 0, &sp08);
                     if (result != sp08) {
-                        PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+                        PLAYERFN_SET(Player_Knuckles_GlideFall);
                         p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
                         p->spriteOffsetX = 6;
                         p->spriteOffsetY = 14;
@@ -1322,7 +1322,7 @@ void Player_Knuckles_Glide_MainUpdate(Player *p)
                             playerBottomX += p->spriteOffsetX;
 
                             if (SA2_LABEL(sub_801E4E4)(playerBottomY, playerBottomX, p->layer, +8, NULL, SA2_LABEL(sub_801EE64)) < 0) {
-                                PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+                                PLAYERFN_SET(Player_Knuckles_GlideFall);
                                 p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
                                 p->spriteOffsetX = 6;
                                 p->spriteOffsetY = 14;
@@ -1350,14 +1350,14 @@ void Player_Knuckles_Glide_MainUpdate(Player *p)
                 return;
             }
 
-            PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+            PLAYERFN_SET(Player_Knuckles_GlideFall);
             p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
             p->spriteOffsetX = 6;
             p->spriteOffsetY = 14;
             p->w.kf.flags |= MOVESTATE_IN_AIR;
         } else {
             if (!(p->heldInput & gPlayerControls.jump) || (p->moveState & MOVESTATE_IN_WATER)) {
-                PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+                PLAYERFN_SET(Player_Knuckles_GlideFall);
                 p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
 
                 if (p->qSpeedAirX <= 0) {
@@ -1376,7 +1376,7 @@ void Player_Knuckles_Glide_MainUpdate(Player *p)
     }
 }
 
-void Player_Knuckles_GlideSoftFall(Player *p)
+void Player_Knuckles_GlideFall_MainUpdate(Player *p)
 {
     u8 someFlags;
 
@@ -1384,7 +1384,7 @@ void Player_Knuckles_GlideSoftFall(Player *p)
     PlayerFn_Cmd_UpdateAirFallSpeed(p);
     sub_8022838(p);
 
-    if (!(p->w.kf.flags & 0x2)) {
+    if (!(p->w.kf.flags & MOVESTATE_IN_AIR)) {
         p->qSpeedGround = 0;
         p->qSpeedAirX = 0;
         p->qSpeedAirY = 0;
@@ -1399,12 +1399,12 @@ void Player_Knuckles_GlideSoftFall(Player *p)
         } else {
             p->SA2_LABEL(unk2A) = 15;
             p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL_HIT;
-            PLAYERFN_SET(Player_Knuckles_GlideSoftLanding);
+            PLAYERFN_SET(Player_Knuckles_GlideLand);
         }
     }
 }
 
-void Player_Knuckles_GlideHardLandingUpdateAnim(Player *p)
+void Player_Knuckles_GlideImpact_UpdateFrames(Player *p)
 {
     u8 rot;
     s32 p2;
@@ -1431,29 +1431,29 @@ void Player_Knuckles_GlideHardLandingUpdateAnim(Player *p)
         p->qWorldY += Q(res);
         p->rotation = rot;
     } else if (!(p->moveState & MOVESTATE_STOOD_ON_OBJ)) {
-        PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+        PLAYERFN_SET(Player_Knuckles_GlideFall);
 
         PLAYERFN_CHANGE_SHIFT_OFFSETS(p, 6, 14);
 
-        p->w.tf.flags |= 0x2;
+        p->w.kf.flags |= MOVESTATE_IN_AIR;
     }
 }
 
-void sub_80135BC(Player *p)
+void Player_Knuckles_GlideImpact_MainUpdate(Player *p)
 {
     if (p->heldInput & gPlayerControls.jump) {
         if (p->qSpeedAirX <= 0) {
             p->qSpeedAirX += Q(0.09375);
 
             if (p->qSpeedAirX < 0) {
-                Player_Knuckles_GlideHardLandingUpdateAnim(p);
+                Player_Knuckles_GlideImpact_UpdateFrames(p);
                 return;
             }
         } else {
             p->qSpeedAirX -= Q(0.09375);
 
             if (p->qSpeedAirX > 0) {
-                Player_Knuckles_GlideHardLandingUpdateAnim(p);
+                Player_Knuckles_GlideImpact_UpdateFrames(p);
                 return;
             }
         }
@@ -1567,12 +1567,12 @@ void Player_Knuckles_Climb_80136E8(Player *p)
                 p->qSpeedAirY = 0;
 
                 SA2_LABEL(sub_8022318)(p);
-                PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+                PLAYERFN_SET(Player_Knuckles_GlideFall);
 
                 p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
                 return;
             } else if (r2 < 0) {
-                sub_801394C(p);
+                Player_Knuckles_ClimbJump(p);
                 return;
             } else {
                 s32 offsetY = Q(9.0);
@@ -1633,7 +1633,7 @@ void Player_Knuckles_Climb_80136E8(Player *p)
                 p->qSpeedAirY = 0;
 
                 SA2_LABEL(sub_8022318)(p);
-                PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+                PLAYERFN_SET(Player_Knuckles_GlideFall);
                 p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
                 return;
             } else {
@@ -1670,17 +1670,17 @@ void Player_Knuckles_Climb_80136E8(Player *p)
             }
         }
 
-        if (r2 != 0 && --p->w.tf.shift == 0) {
-            p->w.tf.shift = 3;
+        if (r2 != 0 && --p->w.kf.shift == 0) {
+            p->w.kf.shift = 3;
         }
 
-        sub_801394C(p);
+        Player_Knuckles_ClimbJump(p);
     } else {
         sub_8013CA0(p);
     }
 }
 
-void sub_801394C(Player *p)
+void Player_Knuckles_ClimbJump(Player *p)
 {
     if (p->frameInput & gPlayerControls.jump) {
         p->qSpeedAirY = -Q(2.625);
@@ -1702,7 +1702,7 @@ void sub_801394C(Player *p)
 }
 
 // 100% (fake match): https://decomp.me/scratch/63L6J
-void Knuckles_Glide_UpdateSpeed(Player *player)
+void Player_Knuckles_Glide_UpdateSpeed(Player *player)
 {
     s32 speedGrnd = ABS(player->qSpeedGround);
     s8 shift = player->w.kf.shift;
@@ -1809,7 +1809,7 @@ void Player_Knuckles_InitGlide(Player *p)
         u8 *tFlags = &p->w.kf.flags;
         *tFlags = 0;
         p->isBoosting = FALSE;
-        *tFlags |= 0x2;
+        *tFlags |= MOVESTATE_IN_AIR;
     }
 
     PLAYERFN_SET_AND_CALL(Player_Knuckles_Glide, p);
@@ -1833,20 +1833,20 @@ void Player_8013B6C(Player *p)
 
 void Player_Knuckles_Glide(Player *p)
 {
-    Knuckles_Glide_UpdateSpeed(p);
+    Player_Knuckles_Glide_UpdateSpeed(p);
     SA2_LABEL(sub_80232D0)(p);
     Player_UpdatePosition(p);
     Player_Knuckles_Glide_MainUpdate(p);
 }
 
-void Player_Knuckles_FallAfterGlide(Player *p)
+void Player_Knuckles_GlideFall(Player *p)
 {
     SA2_LABEL(sub_80232D0)(p);
     Player_UpdatePosition(p);
-    Player_Knuckles_GlideSoftFall(p);
+    Player_Knuckles_GlideFall_MainUpdate(p);
 }
 
-void Player_Knuckles_GlideSoftLanding(Player *p)
+void Player_Knuckles_GlideLand(Player *p)
 {
     if ((p->spriteInfoBody->s.frameFlags) & SPRITE_FLAG_MASK_ANIM_OVER) {
         p->transition = PLTRANS_TOUCH_GROUND;
@@ -1855,9 +1855,9 @@ void Player_Knuckles_GlideSoftLanding(Player *p)
     Player_HandlePhysicsWithAirInput(p);
 }
 
-void Player_Knuckles_GlideHardLanding(Player *p)
+void Player_Knuckles_GlideImpact(Player *p)
 {
-    sub_80135BC(p);
+    Player_Knuckles_GlideImpact_MainUpdate(p);
     SA2_LABEL(sub_80232D0)(p);
     Player_UpdatePosition(p);
 }
@@ -1883,12 +1883,12 @@ void Player_Knuckles_InitClimbPullUpEdge(Player *p)
 
     PLAYERFN_SET(Player_Knuckles_ClimbPullUpEdge);
 
-    p->w.tf.shift = 0;
+    p->w.kf.shift = 0;
 }
 
 void sub_8013CA0(Player *p)
 {
-    PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+    PLAYERFN_SET(Player_Knuckles_GlideFall);
 
     p->spriteOffsetX = 6;
     p->spriteOffsetY = 14;
@@ -1960,11 +1960,11 @@ void Player_Knuckles_InitDrillClaw(Player *p)
 
 void sub_8013D7C(Player *p)
 {
-    PLAYERFN_SET(Player_Knuckles_FallAfterGlide);
+    PLAYERFN_SET(Player_Knuckles_GlideFall);
     p->charState = CHARSTATE_KNUCKLES_GLIDE_FALL;
     p->spriteOffsetX = 6;
     p->spriteOffsetY = 14;
-    p->w.kf.flags |= 0x2;
+    p->w.kf.flags |= MOVESTATE_IN_AIR;
 }
 
 void Player_Knuckles_DrillClaw(Player *p);
